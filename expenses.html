@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="dashboard">
+
+    {% include "sidebar.html" %}
+
+    <main class="content">
+
+        <div class="trip-header glass-card">
+
+            <div>
+                <h1>Expenses</h1>
+                <p>Total spent: Rs {{ total_expenses }}</p>
+            </div>
+
+            <a
+                href="{{ url_for('create_trip') }}"
+                class="btn-primary">
+                Add Expense
+            </a>
+
+        </div>
+
+        <div class="glass-card">
+
+            {% if expenses %}
+
+                {% for expense in expenses %}
+
+                    <div class="expense-row">
+
+                        <div class="expense-left">
+
+                            <div class="avatar">
+                                {{ expense.payer.name[0] }}
+                            </div>
+
+                            <div>
+                                <h4>{{ expense.description }}</h4>
+                                <p>
+                                    {{ trip_names.get(expense.trip_id, "Trip") }}
+                                    ·
+                                    {{ expense.category or "General" }}
+                                </p>
+                            </div>
+
+                        </div>
+
+                        <strong>Rs {{ expense.amount }}</strong>
+
+                    </div>
+
+                {% endfor %}
+
+            {% else %}
+
+                <div class="empty-state">
+                    <h3>No expenses yet</h3>
+                    <p>Add an expense from any trip page.</p>
+                </div>
+
+            {% endif %}
+
+        </div>
+
+    </main>
+
+</div>
+
+{% endblock %}

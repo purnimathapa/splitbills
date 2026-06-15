@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="trip-page">
+
+    <div class="trip-header glass-card">
+
+        <div>
+
+            <h1>
+
+                {{ trip.trip_name }}
+
+            </h1>
+
+            <p>
+
+                Invite Code:
+                <strong>
+
+                    {{ trip.invite_code }}
+
+                </strong>
+
+            </p>
+
+        </div>
+
+        <div>
+
+            <a
+                href="{{ url_for('dashboard') }}"
+                class="btn-secondary">
+
+                Dashboard
+
+            </a>
+
+            <a
+                href="{{ url_for('add_expense', trip_id=trip.id) }}"
+                class="btn-primary">
+
+                + Add Expense
+
+            </a>
+
+        </div>
+
+    </div>
+
+    <div class="stats-grid">
+
+        <div class="stat-card">
+
+            <h2>
+
+                Rs {{ total }}
+
+            </h2>
+
+            <p>
+
+                Total Spent
+
+            </p>
+
+        </div>
+
+        <div class="stat-card">
+
+            <h2>
+
+                {{ members|length }}
+
+            </h2>
+
+            <p>
+
+                Members
+
+            </p>
+
+        </div>
+
+        <div class="stat-card">
+
+            <h2>
+
+                {{ expenses|length }}
+
+            </h2>
+
+            <p>
+
+                Expenses
+
+            </p>
+
+        </div>
+
+    </div>
+
+    <div class="glass-card">
+
+        <h2>
+
+            💸 Expense Timeline
+
+        </h2>
+
+        {% if expenses %}
+
+            {% for expense in expenses %}
+
+            <div class="expense-row">
+
+                <div class="expense-left">
+
+                    <div class="avatar">
+
+                        {{ expense.payer.name[0] }}
+
+                    </div>
+
+                    <div>
+
+                        <h4>
+
+                            {{ expense.payer.name }}
+
+                        </h4>
+
+                        <p>
+
+                            {{ expense.description }}
+
+                        </p>
+
+                    </div>
+
+                </div>
+
+                <div class="expense-right">
+
+                    <span class="category">
+
+                        {{ expense.category }}
+
+                    </span>
+
+                    <strong>
+
+                        Rs {{ expense.amount }}
+
+                    </strong>
+
+                </div>
+
+            </div>
+
+            {% endfor %}
+
+        {% else %}
+
+            <div class="empty-state">
+
+                <img
+                    src="https://cdn-icons-png.flaticon.com/512/7486/7486740.png">
+
+                <h3>
+
+                    No Expenses Yet
+
+                </h3>
+
+                <p>
+
+                    Add your first expense.
+
+                </p>
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+    <br>
+
+    <div class="glass-card">
+
+        <h2>
+
+            👥 Trip Members
+
+        </h2>
+
+        <div class="members-grid">
+
+            {% for member in members %}
+
+            <div class="member-card">
+
+                <div class="avatar">
+
+                    {{ member.name[0] }}
+
+                </div>
+
+                <p>
+
+                    {{ member.name }}
+
+                </p>
+
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+    </div>
+
+    <br>
+
+    <div class="glass-card chart-card">
+
+        <h2>
+
+            📊 Expense Distribution
+
+        </h2>
+
+        <div class="chart-wrap">
+
+            <canvas
+                id="expenseChart">
+
+            </canvas>
+
+        </div>
+
+    </div>
+
+    <br>
+
+    <div class="glass-card">
+
+        <a
+            href="{{ url_for('settlement', trip_id=trip.id) }}"
+            class="btn-primary">
+
+            Calculate Settlement
+
+        </a>
+
+    </div>
+
+</div>
+
+<script>
+
+const ctx =
+document.getElementById(
+    "expenseChart"
+);
+
+new Chart(ctx,{
+
+    type:"doughnut",
+
+    options:{
+
+        responsive:true,
+
+        maintainAspectRatio:false,
+
+        plugins:{
+
+            legend:{
+
+                position:"bottom",
+
+                labels:{
+
+                    color:"#ffffff",
+
+                    boxWidth:12,
+
+                    padding:16
+
+                }
+
+            }
+
+        }
+
+    },
+
+    data:{
+
+        labels: [
+
+            {% for name in chart_labels %}
+                "{{ name }}",
+            {% endfor %}
+
+        ],
+
+        datasets:[{
+
+            data:[
+
+                {% for amount in chart_values %}
+                    {{ amount }},
+                {% endfor %}
+
+            ]
+
+        }]
+
+    }
+
+});
+
+</script>
+
+{% endblock %}

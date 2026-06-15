@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="dashboard">
+
+    {% include "sidebar.html" %}
+
+    <main class="content">
+
+<div class="page-container">
+
+    <div class="glass-card form-card">
+
+        <h1>✈️ Create New Trip</h1>
+
+        <p class="subtitle">
+            Start a new adventure with your friends
+        </p>
+
+        <form method="POST">
+
+            <input
+                type="text"
+                name="trip_name"
+                placeholder="Trip Name (e.g. Pokhara Trip)"
+                required>
+
+            <button
+                type="submit"
+                class="btn-primary">
+
+                Create Trip 🚀
+
+            </button>
+
+        </form>
+
+    </div>
+
+    <div class="glass-card form-card">
+
+        <h1>🤝 Join Trip</h1>
+
+        <p class="subtitle">
+
+            Enter your friend's invite code
+
+        </p>
+
+        <form
+            method="POST"
+            action="{{ url_for('join_trip') }}">
+
+            <input
+                type="text"
+                name="invite_code"
+                placeholder="ABC123"
+                required>
+
+            <button
+                type="submit"
+                class="btn-primary">
+
+                Join Trip
+
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
+
+<div class="center-actions">
+    <a href="{{ url_for('dashboard') }}" class="btn-secondary">
+        Back to Dashboard
+    </a>
+</div>
+
+    </main>
+
+</div>
+
+{% endblock %}

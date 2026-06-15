@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="trip-page">
+
+    <div class="trip-header glass-card">
+
+        <div>
+            <h1>Settlement</h1>
+            <p>{{ trip.trip_name }}</p>
+        </div>
+
+        <a
+            href="{{ url_for('trip_details', trip_id=trip.id) }}"
+            class="btn-secondary">
+            Back to Trip
+        </a>
+
+    </div>
+
+    <div class="glass-card">
+
+        {% if settlements %}
+
+            {% for settlement in settlements %}
+
+                <div class="expense-row">
+                    <div>
+                        <strong>{{ settlement.from }}</strong>
+                        pays
+                        <strong>{{ settlement.to }}</strong>
+                    </div>
+                    <div>
+                        Rs {{ settlement.amount }}
+                    </div>
+                </div>
+
+            {% endfor %}
+
+        {% else %}
+
+            <div class="empty-state">
+                <h3>All settled</h3>
+                <p>No payments are needed right now.</p>
+            </div>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+{% endblock %}

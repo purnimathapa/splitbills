@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="dashboard">
+
+    {% include "sidebar.html" %}
+
+    <main class="content">
+
+        <div class="stats-grid">
+
+            <div class="stat-card">
+                <h3>Rs {{ total_expenses }}</h3>
+                <p>Total Expenses</p>
+            </div>
+
+            <div class="stat-card">
+                <h3>{{ expense_count }}</h3>
+                <p>Expense Entries</p>
+            </div>
+
+        </div>
+
+        <div class="analytics-grid">
+
+            <div class="glass-card chart-card">
+
+                <h2>By Category</h2>
+
+                {% if category_values %}
+                    <div class="chart-wrap">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                {% else %}
+                    <p class="muted">No expense data yet.</p>
+                {% endif %}
+
+            </div>
+
+            <div class="glass-card chart-card">
+
+                <h2>By Trip</h2>
+
+                {% if trip_values %}
+                    <div class="chart-wrap">
+                        <canvas id="tripChart"></canvas>
+                    </div>
+                {% else %}
+                    <p class="muted">No trip data yet.</p>
+                {% endif %}
+
+            </div>
+
+        </div>
+
+    </main>
+
+</div>
+
+<script>
+
+const chartOptions = {
+    responsive:true,
+    maintainAspectRatio:false,
+    plugins:{
+        legend:{
+            position:"bottom",
+            labels:{
+                color:"#ffffff",
+                boxWidth:12,
+                padding:16
+            }
+        }
+    }
+};
+
+{% if category_values %}
+new Chart(document.getElementById("categoryChart"),{
+    type:"doughnut",
+    options:chartOptions,
+    data:{
+        labels:[
+            {% for label in category_labels %}
+                "{{ label }}",
+            {% endfor %}
+        ],
+        datasets:[{
+            data:[
+                {% for value in category_values %}
+                    {{ value }},
+                {% endfor %}
+            ]
+        }]
+    }
+});
+{% endif %}
+
+{% if trip_values %}
+new Chart(document.getElementById("tripChart"),{
+    type:"doughnut",
+    options:chartOptions,
+    data:{
+        labels:[
+            {% for label in trip_labels %}
+                "{{ label }}",
+            {% endfor %}
+        ],
+        datasets:[{
+            data:[
+                {% for value in trip_values %}
+                    {{ value }},
+                {% endfor %}
+            ]
+        }]
+    }
+});
+{% endif %}
+
+</script>
+
+{% endblock %}

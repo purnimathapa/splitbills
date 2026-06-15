@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="dashboard">
+
+    {% include "sidebar.html" %}
+
+    <main class="content">
+
+        <div class="stats-grid">
+
+            <div class="stat-card">
+
+                <h3>
+
+                    Rs {{ total_expenses }}
+
+                </h3>
+
+                <p>
+
+                    Total Expenses
+
+                </p>
+
+            </div>
+
+            <div class="stat-card">
+
+                <h3>
+
+                    {{ trips|length }}
+
+                </h3>
+
+                <p>
+
+                    Active Trips
+
+                </p>
+
+            </div>
+
+            <div class="stat-card">
+
+                <h3>
+
+                    {{ friend_count }}
+
+                </h3>
+
+                <p>
+
+                    Friends
+
+                </p>
+
+            </div>
+
+        </div>
+
+        <div class="charts-section">
+
+            <div class="glass-card">
+
+                <h3>Your Trips</h3>
+
+                {% if trips %}
+                    <div class="trip-list">
+                        {% for trip in trips %}
+                            <a
+                                class="trip-link"
+                                href="{{ url_for('trip_details', trip_id=trip.id) }}">
+                                <span>{{ trip.trip_name }}</span>
+                                <strong>{{ trip.invite_code }}</strong>
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="muted">Create or join a trip to get started.</p>
+                {% endif %}
+
+                <a
+                    class="btn-primary inline-btn"
+                    href="{{ url_for('create_trip') }}">
+                    Create or Join Trip
+                </a>
+
+            </div>
+
+        </div>
+
+        <div class="glass-card">
+
+            <h3>
+
+                Recent Expenses
+
+            </h3>
+
+            {% if expenses %}
+                {% for expense in expenses %}
+                    <div class="expense-item">
+                        <div class="avatar">
+                            {{ expense.payer.name[0] }}
+                        </div>
+                        <div>
+                            {{ expense.description }}
+                        </div>
+                        <div>
+                            Rs {{ expense.amount }}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p class="muted">No expenses yet.</p>
+            {% endif %}
+
+        </div>
+
+    </main>
+
+</div>
+
+{% endblock %}

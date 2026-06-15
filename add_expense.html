@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="auth-wrapper">
+
+    <div class="glass-card form-card">
+
+        <h1>Add Expense</h1>
+
+        <p class="subtitle">
+            {{ trip.trip_name }}
+        </p>
+
+        <form method="POST">
+
+            <input
+                type="text"
+                name="description"
+                placeholder="Description"
+                required>
+
+            <input
+                type="text"
+                name="category"
+                placeholder="Category"
+                value="General">
+
+            <input
+                type="number"
+                name="amount"
+                placeholder="Amount"
+                min="0.01"
+                step="0.01"
+                required>
+
+            <button
+                type="submit"
+                class="btn-primary">
+                Add Expense
+            </button>
+
+        </form>
+
+        <a
+            href="{{ url_for('trip_details', trip_id=trip.id) }}"
+            class="btn-secondary inline-btn">
+            Back to Trip
+        </a>
+
+    </div>
+
+</div>
+
+{% endblock %}

@@ -3,3 +3,4 @@ Flask-Bcrypt
 Flask-Login
 Flask-SQLAlchemy
 PyMySQL
+requests

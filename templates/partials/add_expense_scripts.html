@@ -87,7 +87,7 @@
     function memberCheckboxes(index, checkAll) {
         if (!members.length) return '<p class="form-hint">No trip members.</p>';
         if (selfService && selfService.checked) {
-            return '<p class="text-caption item-row-assign-off">Assignees picked via claim links.</p>';
+            return '<p class="text-caption item-row-assign-off">Guests pick items on their link — you don\'t assign food here.</p>';
         }
         return members.map(function (m) {
             return '<label class="checkbox-inline"><input type="checkbox" name="item_users_' + index + '" value="' + m.id + '" class="item-user-cb"' + (checkAll ? ' checked' : '') + '>' + m.name + '</label>';
@@ -100,10 +100,10 @@
         const checkAll = !!(prefill && prefill.checkAllMembers);
         const row = document.createElement('div');
         row.className = 'item-row';
-        row.innerHTML =
+            row.innerHTML =
             '<div class="item-row-grid">' +
-            '<input type="text" name="item_name_' + index + '" placeholder="Item name" required>' +
-            '<input type="number" name="item_price_' + index + '" class="item-price" placeholder="Price" min="0.01" step="0.01" required>' +
+            '<input type="text" name="item_name_' + index + '" placeholder="Item name">' +
+            '<input type="number" name="item_price_' + index + '" class="item-price" placeholder="Price" min="0.01" step="0.01">' +
             '<input type="number" name="item_quantity_' + index + '" class="item-qty" placeholder="Qty" min="0.01" step="0.01" value="1" required>' +
             '<button type="button" class="btn-secondary btn-sm remove-item">Remove</button></div>' +
             '<div class="item-row-assign"><span class="form-label">Assigned to</span>' + memberCheckboxes(index, checkAll) + '</div>';
@@ -132,9 +132,19 @@
         useItemized.checked = true;
         togglePanels();
         items.forEach(function (item) {
-            addItemRow({ name: item.name, price: item.price, quantity: item.quantity || 1, checkAllMembers: true });
+            addItemRow({ name: item.name, price: item.price, quantity: item.quantity || 1, checkAllMembers: false });
         });
         updateTotals();
+        const section = document.getElementById('itemized-panel');
+        if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function applyMerchantHint(data) {
+        if (!data || !data.suggested_merchant) return;
+        const desc = document.getElementById('split-description');
+        if (desc && !desc.value.trim()) {
+            desc.value = data.suggested_merchant;
+        }
     }
 
     function updateTotals() {
@@ -152,37 +162,60 @@
     async function scanReceipt() {
         const file = receiptInput.files && receiptInput.files[0];
         if (!file) { showOcrStatus('Choose a receipt image first.', 'warn'); return; }
-        scanReceiptBtn.disabled = true;
-        scanReceiptBtn.textContent = 'Scanning…';
-        showOcrStatus('Reading receipt…', 'warn');
+        const form = document.getElementById('expense-form');
+        const autoFlow = form && form.dataset.flow === 'receipt-guest';
+        if (scanReceiptBtn) {
+            scanReceiptBtn.disabled = true;
+            scanReceiptBtn.textContent = autoFlow ? 'Scanning…' : 'Scanning…';
+        }
+        showOcrStatus('Reading receipt with AI…', 'warn');
         const body = new FormData();
         body.append('receipt', file);
         try {
             const response = await fetch(scanReceiptUrl, { method: 'POST', body: body, credentials: 'same-origin' });
             const data = await response.json();
+            applyMerchantHint(data);
             if (data.success && data.items && data.items.length) {
                 prefillFromOcr(data.items);
-                showOcrStatus(data.message || 'Line items pre-filled.', data.confidence === 'high' ? 'success' : 'warn');
+                showOcrStatus(data.message || 'Items ready — guests pick on their links.', data.confidence === 'high' ? 'success' : 'warn');
                 if (window.SplitBillsUI && window.SplitBillsUI.toast) {
-                    window.SplitBillsUI.toast('Receipt scanned — review line items', data.confidence === 'high' ? 'success' : 'info');
+                    window.SplitBillsUI.toast('Receipt read — check items below', data.confidence === 'high' ? 'success' : 'info');
                 }
+            } else if (data.items && data.items.length) {
+                prefillFromOcr(data.items);
+                showOcrStatus(data.message || 'Review items below.', 'warn');
             } else {
-                showOcrStatus(data.message || 'Enter items manually.', 'warn');
+                showOcrStatus(data.message || 'Add items manually with + Add item.', 'warn');
                 if (!useItemized.checked) { useItemized.checked = true; togglePanels(); }
+                if (autoFlow && itemRows && itemRows.children.length === 0 && addItemBtn) {
+                    addItemBtn.click();
+                }
+            }
+            if (autoFlow && scanReceiptBtn) {
+                scanReceiptBtn.hidden = false;
+                scanReceiptBtn.textContent = 'Scan again';
             }
         } catch (e) {
-            showOcrStatus('Scan failed. Add items manually.', 'warn');
+            showOcrStatus('Scan failed. Add items with + Add item.', 'warn');
         } finally {
-            scanReceiptBtn.disabled = !receiptInput.files.length;
-            scanReceiptBtn.textContent = 'Scan receipt for line items';
+            if (scanReceiptBtn) {
+                scanReceiptBtn.disabled = !(receiptInput.files && receiptInput.files.length);
+                if (!autoFlow) scanReceiptBtn.textContent = 'Scan receipt for line items';
+            }
         }
     }
 
     receiptInput.addEventListener('change', function () {
-        scanReceiptBtn.disabled = !(receiptInput.files && receiptInput.files.length);
-        ocrStatus.hidden = true;
+        const form = document.getElementById('expense-form');
+        const autoFlow = form && form.dataset.flow === 'receipt-guest';
+        if (scanReceiptBtn) scanReceiptBtn.disabled = !(receiptInput.files && receiptInput.files.length);
+        if (autoFlow && receiptInput.files && receiptInput.files.length) {
+            scanReceipt();
+        } else {
+            ocrStatus.hidden = true;
+        }
     });
-    scanReceiptBtn.addEventListener('click', scanReceipt);
+    if (scanReceiptBtn) scanReceiptBtn.addEventListener('click', scanReceipt);
     useItemized.addEventListener('change', togglePanels);
     if (selfService) selfService.addEventListener('change', toggleSelfServiceUi);
     if (splitMethod && splitMethod.tagName === 'SELECT') splitMethod.addEventListener('change', toggleSplitPanels);

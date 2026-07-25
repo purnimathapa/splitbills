@@ -61,6 +61,8 @@ class Config:
     KHALTI_PUBLIC_KEY = os.getenv("KHALTI_PUBLIC_KEY", "")
     KHALTI_SECRET_KEY = os.getenv("KHALTI_SECRET_KEY", "")
     KHALTI_WEBHOOK_SECRET = os.getenv("KHALTI_WEBHOOK_SECRET", "")
+    # Local dev only: simulate Khalti checkout on 127.0.0.1 when no secret key is set
+    KHALTI_DEV_MODE = os.getenv("KHALTI_DEV_MODE", "false").lower() == "true"
 
     # --- Stripe Checkout (optional guest card payments) ---
     STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")

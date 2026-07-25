@@ -60,6 +60,30 @@
         } catch (e) { /* ignore */ }
     }
 
+    function initModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+        const openers = document.querySelectorAll('[data-open-modal="' + modalId + '"]');
+        const closeEls = modal.querySelectorAll('[data-close-modal]');
+
+        function open() {
+            modal.hidden = false;
+            requestAnimationFrame(function () { modal.classList.add('is-open'); });
+            document.body.classList.add('modal-open');
+        }
+        function close() {
+            modal.classList.remove('is-open');
+            document.body.classList.remove('modal-open');
+            setTimeout(function () { modal.hidden = true; }, 220);
+        }
+
+        openers.forEach(function (el) { el.addEventListener('click', open); });
+        closeEls.forEach(function (el) { el.addEventListener('click', close); });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && modal.classList.contains('is-open')) close();
+        });
+    }
+
     function initSheet(sheetId) {
         const sheet = document.getElementById(sheetId);
         if (!sheet) return;
@@ -172,6 +196,7 @@
         initTheme();
         showFlashToasts();
         initSheet('add-expense-sheet');
+        initModal('quick-expense-modal');
         initCopyPayLinks();
         initPaySubmitLoading();
         initChartSkeletons();

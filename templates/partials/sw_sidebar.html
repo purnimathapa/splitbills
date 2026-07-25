@@ -1,0 +1,42 @@
+<aside class="sw-sidebar" aria-label="Sidebar">
+    <nav class="sw-sidebar__nav">
+        <a href="{{ url_for('expenses') }}" class="sw-sidebar__link {% if active_nav == 'expenses' %}is-active{% endif %}">All expenses</a>
+        <a href="{{ url_for('activity_global') }}" class="sw-sidebar__link {% if active_nav == 'activity' %}is-active{% endif %}">Recent activity</a>
+    </nav>
+
+    <div class="sw-sidebar__section">
+        <div class="sw-sidebar__section-head">
+            <span>Groups</span>
+            <a href="{{ url_for('create_group') }}" class="sw-sidebar__add">+ add</a>
+        </div>
+        {% if nav_trips %}
+        <ul class="sw-sidebar__list">
+            {% for trip in nav_trips %}
+            <li>
+                <a href="{{ url_for('group_details', trip_id=trip.id) }}" class="sw-sidebar__list-link">{{ trip.trip_name }}</a>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="sw-sidebar__empty">No groups yet.</p>
+        {% endif %}
+    </div>
+
+    <div class="sw-sidebar__section">
+        <div class="sw-sidebar__section-head">
+            <span>Friends</span>
+            <a href="{{ url_for('dashboard_friends') }}" class="sw-sidebar__add">+ add</a>
+        </div>
+        {% if nav_friends %}
+        <ul class="sw-sidebar__list">
+            {% for friend in nav_friends %}
+            <li>
+                <a href="{{ url_for('friend_detail', user_id=friend.id) }}" class="sw-sidebar__list-link">{{ friend.name }}</a>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="sw-sidebar__empty">Add friends via a group.</p>
+        {% endif %}
+    </div>
+</aside>

@@ -1,19 +1,15 @@
 {% from "macros/ui.html" import user_avatar %}
-<header class="app-nav app-nav--shell">
+<header class="app-nav">
     <div class="app-nav__inner">
-        <a href="{{ url_for('dashboard') }}" class="app-nav__brand">
+        <a href="{{ url_for('expenses') }}" class="app-nav__brand">
             <span class="app-nav__mark">SB</span>
-            <span class="app-nav__brand-text">Split</span>
+            <span>SplitBills</span>
         </a>
-        <ul class="app-nav__links app-nav__links--desktop">
-            <li><a href="{{ url_for('dashboard') }}" class="app-nav__link {% if request.endpoint == 'dashboard' %}is-active{% endif %}">Home</a></li>
-            <li><a href="{{ url_for('activity_global') }}" class="app-nav__link {% if request.endpoint in ['activity_global', 'activity_trip'] %}is-active{% endif %}">Activity</a></li>
-            <li><a href="{{ url_for('new_split') }}" class="app-nav__link {% if request.endpoint in ['new_split', 'add_expense'] %}is-active{% endif %}">New split</a></li>
-            <li><a href="{{ url_for('profile') }}" class="app-nav__link {% if request.endpoint == 'profile' %}is-active{% endif %}">Profile</a></li>
-        </ul>
         <div class="app-nav__actions">
             {% include "partials/notification_bell.html" %}
+            <span class="sw-topbar__name hide-mobile">{{ current_user.name }}</span>
             {{ user_avatar(current_user, 'sm') }}
+            <a href="{{ url_for('logout') }}" class="link-muted hide-mobile">Log out</a>
         </div>
     </div>
 </header>

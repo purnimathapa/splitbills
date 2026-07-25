@@ -3,49 +3,17 @@
 
 {% block content %}
 
-<div class="app-layout">
+<div class="sw-app">
     {% include "partials/app_nav.html" %}
-    <main class="app-main">
-
-        <header class="page-head">
-            <div>
-                <h1>Expense</h1>
-                <p class="text-caption">{% if trip %}{{ trip.trip_name }}{% else %}One-off split{% endif %}</p>
-            </div>
-            {% if trip %}
-            <a href="{{ url_for('group_details', trip_id=trip.id) }}" class="btn-secondary">← Group</a>
-            {% else %}
-            <a href="{{ url_for('dashboard') }}" class="btn-secondary">← Home</a>
-            {% endif %}
+    <div class="sw-body sw-body--single">
+        <main class="sw-main sw-main--wide">
+        <header class="sw-page-head">
+            <a href="{{ url_for('expenses') }}" class="text-caption">← All expenses</a>
+            <h1>{{ expense.description }}</h1>
+            <p class="text-caption">{{ currency }} {{ (expense.amount * conversion_rate)|round(2) }} · Paid by {{ expense.payer.name }}</p>
         </header>
 
         <div class="card">
-            <div class="expense-row__main">
-                {{ user_avatar(expense.payer, 'lg') }}
-                <div>
-                    <h2>{{ expense.description }} <span class="badge badge-neutral">{{ expense.split_type or 'equal' }}</span>
-                        {% if expense.self_service_items %}
-                        <span class="badge badge-neutral">Self-service items</span>
-                        {% endif %}
-                        {% if expense.is_recurring %}
-                        <span class="badge badge-success">Repeats {{ expense.recurrence_interval }}</span>
-                        {% endif %}
-                    </h2>
-                    <p class="text-caption">
-                        Paid by <strong>{{ expense.payer.name }}</strong>
-                        · {{ currency }} {{ (expense.amount * conversion_rate)|round(2) }}
-                        {% if expense.created_at %}· {{ expense.created_at.strftime('%d %b %Y') }}{% endif %}
-                        {% if expense.is_recurring and expense.next_occurrence_date %}
-                        · Next auto entry {{ expense.next_occurrence_date.strftime('%d %b %Y') }}
-                        {% endif %}
-                    </p>
-                    {% if expense.remarks %}<p class="text-caption">{{ expense.remarks }}</p>{% endif %}
-                    {% if expense.tax_tip_amount and expense.tax_tip_amount > 0 %}
-                    <p class="text-caption">Tax &amp; tip: {{ currency }} {{ (expense.tax_tip_amount * conversion_rate)|round(2) }}</p>
-                    {% endif %}
-                </div>
-            </div>
-
             {% if line_items %}
             <section class="card-section">
                 <h3>Line items</h3>
@@ -114,14 +82,23 @@
 
             {% if split_rows %}
             <section class="card-section">
-                <h3>Who owes what</h3>
+                <h3>Split breakdown</h3>
                 {% for row in split_rows %}
-                <div class="settlement-row">
-                    <div class="expense-row__main">
-                        {{ user_avatar(row.user, 'sm') }}
-                        <span>{{ row.user.name }}</span>
+                <div class="sw-expense-row">
+                    {{ user_avatar(row.user, 'sm') }}
+                    <div class="sw-expense-row__body">
+                        <p class="sw-expense-row__title">{{ row.user.name }}</p>
+                        {% if row.user.id == expense.paid_by %}
+                        <p class="sw-expense-row__detail text-caption">paid {{ currency }} {{ (expense.amount * conversion_rate)|round(2) }}</p>
+                        {% endif %}
                     </div>
-                    <strong>{{ currency }} {{ (row.amount_owed * conversion_rate)|round(2) }}</strong>
+                    <div class="sw-expense-row__amount {% if row.user.id != expense.paid_by %}text-danger{% endif %}">
+                        {% if row.user.id == expense.paid_by %}
+                        owes {{ currency }} {{ (row.amount_owed * conversion_rate)|round(2) }}
+                        {% else %}
+                        owes {{ currency }} {{ (row.amount_owed * conversion_rate)|round(2) }}
+                        {% endif %}
+                    </div>
                 </div>
                 {% endfor %}
             </section>
@@ -155,8 +132,8 @@
             </section>
             {% endif %}
         </div>
-
-    </main>
+        </main>
+    </div>
 </div>
 
 {% endblock %}

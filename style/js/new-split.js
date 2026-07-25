@@ -13,10 +13,6 @@
     if (selfService) selfService.checked = true;
     if (itemizedPanel) itemizedPanel.hidden = false;
 
-    if (addBtn && itemRows && itemRows.children.length === 0) {
-        addBtn.click();
-    }
-
     form.addEventListener('submit', function (e) {
         if (errEl) {
             errEl.hidden = true;
@@ -26,7 +22,7 @@
         const desc = document.getElementById('split-description');
         if (!desc || !desc.value.trim()) {
             e.preventDefault();
-            showErr('Add a name for this bill (e.g. the restaurant).');
+            showErr('Add a place name, or upload a clearer receipt so we can detect it.');
             return;
         }
 
@@ -56,7 +52,7 @@
         );
         if (enabledChecked.length < 1) {
             e.preventDefault();
-            showErr('Select at least one other person on this split.');
+            showErr('Open “Add people” and select at least one friend for this split.');
             return;
         }
 

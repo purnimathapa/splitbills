@@ -50,17 +50,24 @@
 
             <p class="text-caption">Hi {{ guest.name }}, choose how to pay:</p>
 
+            {% set khalti_ok = khalti_enabled and (link.amount_owed * conversion_rate) >= 10 %}
+            {% set online_ok = stripe_enabled or khalti_ok %}
+
             <div class="form-stack">
                 {% if stripe_enabled %}
                 <form method="POST" action="{{ url_for('guest_pay_stripe', token=token) }}">
                     <button type="submit" class="btn-primary btn-block btn-stripe">Pay with card</button>
                 </form>
                 {% endif %}
+                {% if khalti_ok %}
                 <form method="POST" action="{{ url_for('guest_pay_now', token=token) }}">
                     <button type="submit" class="btn-primary btn-block btn-khalti">Pay with Khalti</button>
                 </form>
+                {% elif khalti_enabled and not khalti_ok %}
+                <p class="text-caption text-warn">Khalti needs at least {{ currency }} 10 per payment — use cash/bank below for smaller amounts.</p>
+                {% endif %}
                 <form method="POST" action="{{ url_for('guest_pay_mark_paid', token=token) }}">
-                    <button type="submit" class="btn-secondary btn-block">I paid cash / bank transfer</button>
+                    <button type="submit" class="btn-{% if online_ok %}secondary{% else %}primary{% endif %} btn-block">I paid cash / bank transfer</button>
                 </form>
             </div>
 
@@ -73,17 +80,19 @@
                     </svg>
                 </span>
                 {% endif %}
+                {% if khalti_ok %}
                 <span class="provider-logo provider-logo--khalti" aria-label="Khalti">
                     <svg viewBox="0 0 80 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">
                         <text x="0" y="18" fill="#5C2D91" font-family="system-ui,sans-serif" font-size="18" font-weight="700">Khalti</text>
                     </svg>
                 </span>
+                {% endif %}
                 <span class="provider-logo" aria-label="Manual bank transfer">
                     <span class="text-small">Cash / bank</span>
                 </span>
             </div>
-            {% if not khalti_enabled and not stripe_enabled %}
-            <p class="text-small">Online checkout is not configured on this server — use manual confirmation or contact the person who paid.</p>
+            {% if not online_ok %}
+            <p class="text-small">Online checkout is not set up on this server — tap <strong>I paid cash / bank transfer</strong> after you pay the payer directly.</p>
             {% endif %}
 
             {% endif %}

@@ -31,6 +31,7 @@ class ReceiptScanResult:
     items: list[ParsedReceiptItem] = field(default_factory=list)
     message: str = ""
     ocr_available: bool = True
+    suggested_merchant: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -46,6 +47,7 @@ class ReceiptScanResult:
             ],
             "message": self.message,
             "ocr_available": self.ocr_available,
+            "suggested_merchant": self.suggested_merchant,
         }
 
 
@@ -70,7 +72,18 @@ MIN_NAME_LEN = 2
 MAX_NAME_LEN = 120
 
 
+def _python_ocr_imports_ok() -> bool:
+    try:
+        import PIL  # noqa: F401
+        import pytesseract  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
 def tesseract_is_available(tesseract_cmd: str | None = None) -> bool:
+    if not _python_ocr_imports_ok():
+        return False
     if tesseract_cmd:
         return bool(shutil.which(tesseract_cmd) or tesseract_cmd)
     return shutil.which("tesseract") is not None
@@ -164,6 +177,22 @@ def parse_line_items_from_text(text: str) -> tuple[list[ParsedReceiptItem], floa
     return items, confidence
 
 
+def guess_merchant_from_text(text: str) -> str:
+    """Best-effort venue name from the top of receipt OCR text."""
+    for raw in text.splitlines():
+        line = raw.strip()
+        if len(line) < 3 or len(line) > 64:
+            continue
+        if SKIP_LINE_PATTERN.search(line):
+            continue
+        if PRICE_AT_END.search(line):
+            continue
+        if re.match(r"^[\d\s\-/:.]+$", line):
+            continue
+        return line[:120]
+    return ""
+
+
 def scan_receipt_image(
     image_bytes: bytes,
     *,
@@ -200,24 +229,25 @@ def scan_receipt_image(
         )
 
     items, score = parse_line_items_from_text(text)
+    merchant = guess_merchant_from_text(text)
     if not items:
         return ReceiptScanResult(
             success=False,
             confidence="none",
             message=(
                 "Could not detect line items with prices. "
-                "Try a clearer photo or enter items manually."
+                "Try a clearer photo or tap + Add item."
             ),
+            suggested_merchant=merchant,
         )
 
     if score >= min_high_confidence:
         level = "high"
-        message = f"Found {len(items)} item(s). Review and assign people below."
+        message = f"Found {len(items)} item(s). Send links — each person taps what they ate."
     elif score >= min_low_confidence:
         level = "low"
         message = (
-            f"Found {len(items)} possible item(s) with low confidence. "
-            "Please review carefully before saving."
+            f"Found {len(items)} item(s). Please review prices, then share guest links."
         )
     else:
         return ReceiptScanResult(
@@ -225,9 +255,9 @@ def scan_receipt_image(
             confidence="none",
             items=items,
             message=(
-                "OCR results were too uncertain to pre-fill. "
-                "Add or edit line items manually."
+                "Could not read items reliably. Fix the list below or try another photo."
             ),
+            suggested_merchant=merchant,
         )
 
     return ReceiptScanResult(
@@ -235,4 +265,5 @@ def scan_receipt_image(
         confidence=level,
         items=items,
         message=message,
+        suggested_merchant=merchant,
     )

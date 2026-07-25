@@ -4,23 +4,14 @@
 
 {% block content %}
 
-<div class="app-layout">
+<div class="sw-app">
     {% include "partials/app_nav.html" %}
-    <main class="app-main">
-
-        <header class="page-head">
-            <div>
-                <p class="tag">Updates</p>
-                <h1>{% if scope == 'trip' and trip %}{{ trip.trip_name }} activity{% else %}All activity{% endif %}</h1>
-                <p class="text-caption">Expenses, payments, and members across your groups.</p>
-            </div>
-            <div class="page-head__actions">
-                {% if scope == 'trip' and trip %}
-                <a href="{{ url_for('group_details', trip_id=trip.id) }}" class="btn-secondary">← Group</a>
-                {% else %}
-                <a href="{{ url_for('dashboard') }}" class="btn-secondary">← Home</a>
-                {% endif %}
-            </div>
+    <div class="sw-body">
+        {% set active_nav = 'activity' %}
+        {% include "partials/sw_sidebar.html" %}
+        <main class="sw-main">
+        <header class="sw-page-head">
+                <h1>{% if scope == 'trip' and trip %}{{ trip.trip_name }} activity{% else %}Recent activity{% endif %}</h1>
         </header>
 
         <div class="card card--flush" data-feed-shell>
@@ -46,7 +37,11 @@
         {{ activity_pagination(pagination, 'activity_global') }}
         {% endif %}
 
-    </main>
+        </main>
+        {% if scope != 'trip' %}
+        {% include "partials/sw_balance_panel.html" %}
+        {% endif %}
+    </div>
 </div>
 
 {% endblock %}

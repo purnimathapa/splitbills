@@ -88,7 +88,7 @@ from expense_participants import (
     user_can_access_expense,
 )
 from receipt_upload import save_receipt_file, validate_receipt_file
-from receipt_ocr import scan_receipt_image
+from receipt_ocr import scan_receipt_image, tesseract_is_available
 from scheduler_setup import init_scheduler_for_app
 from settlemet import calculate_settlement
 from recurring_expenses import parse_recurrence_from_form
@@ -304,6 +304,17 @@ def get_payment_link_for_token(token: str) -> ExpensePaymentLink | None:
     )
 
 
+def _request_is_local_dev() -> bool:
+    host = (request.host or "").split(":")[0].lower()
+    return host in ("127.0.0.1", "localhost", "::1")
+
+
+def khalti_checkout_available() -> bool:
+    if khalti_configured(app):
+        return True
+    return bool(app.config.get("KHALTI_DEV_MODE")) and _request_is_local_dev()
+
+
 def mark_payment_link_paid(
     link: ExpensePaymentLink,
     provider: str,
@@ -432,12 +443,15 @@ def get_trip_or_redirect(trip_id):
     return trip
 
 
-def get_split_candidate_users():
-    """People you can add to a one-off receipt split (not tied to a group)."""
-    ids: set[int] = {current_user.id}
+def get_split_friend_candidates():
+    """Registered friends you can optionally add to a one-off receipt split."""
+    ids: set[int] = set()
     ids.update(friend_user_ids_from_standalone(current_user.id))
     for friend in get_all_friends():
         ids.add(friend.id)
+    ids.discard(current_user.id)
+    if not ids:
+        return []
     return User.query.filter(User.id.in_(ids)).order_by(User.name).all()
 
 
@@ -690,6 +704,19 @@ def fetch_rate_route():
 
 
 @app.context_processor
+def inject_nav_shell():
+    if not current_user.is_authenticated:
+        return {}
+    trips = get_user_trips()
+    friends = get_all_friends()
+    return {
+        "nav_trips": trips,
+        "nav_friends": friends,
+        "nav_net_balance": get_user_net_balance(current_user.id),
+    }
+
+
+@app.context_processor
 def inject_currency():
     # provide a currency symbol/code and conversion_rate to all templates (default from Config)
     default_cur = app.config.get("DEFAULT_CURRENCY", "Rs")
@@ -699,7 +726,66 @@ def inject_currency():
     }
 
 
+def build_expense_summaries(expenses, viewer_id: int) -> dict[int, dict]:
+    """Splitwise-style one-line summaries per expense for the list view."""
+    if not expenses:
+        return {}
+    expense_ids = [e.id for e in expenses]
+    splits_by_expense: dict[int, list] = defaultdict(list)
+    for split in ExpenseSplit.query.filter(ExpenseSplit.expense_id.in_(expense_ids)).all():
+        splits_by_expense[split.expense_id].append(split)
 
+    user_ids: set[int] = set()
+    for expense in expenses:
+        user_ids.add(expense.paid_by)
+        for split in splits_by_expense.get(expense.id, []):
+            user_ids.add(split.user_id)
+    users = {
+        u.id: u
+        for u in User.query.filter(User.id.in_(user_ids)).all()
+    } if user_ids else {}
+
+    out: dict[int, dict] = {}
+    conv = float(session.get("conversion_rate", 1.0))
+    cur = session.get("currency", app.config.get("DEFAULT_CURRENCY", "Rs"))
+
+    for expense in expenses:
+        splits = splits_by_expense.get(expense.id, [])
+        payer = users.get(expense.paid_by)
+        amount = expense.amount or 0
+        paid_line = ""
+        secondary: list[dict] = []
+
+        if expense.paid_by == viewer_id:
+            paid_line = f"you paid {cur} {round(amount * conv, 2)}"
+            for split in splits:
+                if split.user_id == viewer_id or (split.amount_owed or 0) <= 0:
+                    continue
+                friend = users.get(split.user_id)
+                fname = (friend.name.split()[0] if friend and friend.name else "friend")
+                secondary.append(
+                    {
+                        "text": f"you lent {fname} {cur} {round((split.amount_owed or 0) * conv, 2)}",
+                        "tone": "positive",
+                    }
+                )
+        else:
+            viewer_split = next((s for s in splits if s.user_id == viewer_id), None)
+            owed = (viewer_split.amount_owed or 0) if viewer_split else 0
+            if owed > 0 and payer:
+                pname = payer.name.split()[0] if payer.name else "someone"
+                secondary.append(
+                    {
+                        "text": f"you owe {pname} {cur} {round(owed * conv, 2)}",
+                        "tone": "negative",
+                    }
+                )
+            elif payer:
+                pname = payer.name.split()[0] if payer.name else "someone"
+                paid_line = f"{pname} paid {cur} {round(amount * conv, 2)}"
+
+        out[expense.id] = {"paid_line": paid_line, "secondary_lines": secondary}
+    return out
 
 
 @app.route("/friends/<int:user_id>/export")
@@ -926,65 +1012,7 @@ def activity_trip(trip_id):
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    
-    trips, expenses = get_user_expenses()
-    total_expenses = sum(expense.amount or 0 for expense in expenses)
-
-    # Per-trip spending for the logged-in user
-    user_spend_per_trip = defaultdict(float)
-    trip_names = {}
-    for trip in trips:
-        trip_names[trip.id] = trip.trip_name
-        trip_expenses = Expense.query.filter_by(
-            trip_id=trip.id, paid_by=current_user.id
-        ).all()
-        user_spend_per_trip[trip.id] = round(
-            sum(e.amount or 0 for e in trip_expenses), 2
-        )
-
-    friends = {
-        membership.user_id
-        for trip in trips
-        for membership in TripMember.query.filter_by(trip_id=trip.id).all()
-    }
-
-    active_trips = [t for t in trips if t.is_active]
-    payment_hub = get_payment_hub_for_user(current_user.id)
-    net_balance = get_user_net_balance(current_user.id)
-    chart_pending = round(payment_hub["pending_total"] * float(session.get("conversion_rate", 1.0)), 2)
-    chart_collected = round(payment_hub["collected_total"] * float(session.get("conversion_rate", 1.0)), 2)
-    recent_receipts = (
-        Expense.query.filter(
-            Expense.paid_by == current_user.id,
-            Expense.receipt_image_url.isnot(None),
-        )
-        .order_by(Expense.created_at.desc())
-        .limit(5)
-        .all()
-    )
-    first_active = active_trips[0] if active_trips else (trips[0] if trips else None)
-    fab_trip = first_active if first_active and first_active.is_active else None
-    fab_members = get_trip_members(fab_trip.id) if fab_trip else []
-    trip_ids = [t.id for t in trips]
-    activity_items = recent_activity_for_user(current_user.id, trip_ids, limit=8)
-
-    return render_template(
-        "dashboard.html",
-        expenses=expenses[:5],
-        total_expenses=round(total_expenses, 2),
-        friend_count=max(len(friends) - 1, 0),
-        user_spend_per_trip=user_spend_per_trip,
-        trip_names=trip_names,
-        payment_hub=payment_hub,
-        net_balance=net_balance,
-        chart_pending=chart_pending,
-        chart_collected=chart_collected,
-        recent_receipts=recent_receipts,
-        first_active=first_active,
-        fab_trip=fab_trip,
-        fab_members=fab_members,
-        activity_items=activity_items,
-    )
+    return redirect(url_for("expenses"))
 
 
 @app.route("/dashboard/expenses")
@@ -1285,19 +1313,21 @@ def expenses():
 
     total_expenses = round(sum(expense.amount or 0 for expense in expenses), 2)
 
-    # Group expenses by date (newest first)
-    expenses_by_date = {}
-    date_totals = {}
+    expenses_by_month: dict = {}
+    month_order: list[str] = []
     for expense in expenses:
-        date_key = expense.created_at.strftime("%Y-%m-%d") if expense.created_at else "Unknown"
-        if date_key not in expenses_by_date:
-            expenses_by_date[date_key] = []
-            date_totals[date_key] = 0
-        expenses_by_date[date_key].append(expense)
-        date_totals[date_key] += expense.amount or 0
+        if expense.created_at:
+            month_key = expense.created_at.strftime("%Y-%m")
+            label = expense.created_at.strftime("%B %Y").upper()
+        else:
+            month_key = "unknown"
+            label = "UNKNOWN"
+        if month_key not in expenses_by_month:
+            expenses_by_month[month_key] = {"label": label, "expenses": []}
+            month_order.append(month_key)
+        expenses_by_month[month_key]["expenses"].append(expense)
 
-    # Round date totals
-    date_totals = {k: round(v, 2) for k, v in date_totals.items()}
+    expense_summaries = build_expense_summaries(expenses, current_user.id)
 
     return render_template(
         "expenses.html",
@@ -1305,9 +1335,49 @@ def expenses():
         trip_names=trip_names,
         trip_summaries=trip_summaries,
         total_expenses=total_expenses,
-        expenses_by_date=expenses_by_date,
-        date_totals=date_totals,
+        expenses_by_month=[(k, expenses_by_month[k]) for k in month_order],
+        expense_summaries=expense_summaries,
     )
+
+
+@app.route("/expenses/add", methods=["POST"])
+@login_required
+def quick_add_expense():
+    member_ids = parse_participant_ids_from_form(request.form, current_user.id)
+    if len(member_ids) < 2:
+        flash("Pick at least one friend for this expense.", "error")
+        return redirect(url_for("expenses"))
+
+    try:
+        expense = create_expense_from_form(
+            request.form,
+            request.files.get("receipt"),
+            payer_user_id=current_user.id,
+            member_ids=member_ids,
+            trip_id=None,
+            app=app,
+            save_receipt_fn=save_receipt_file,
+            log_created_fn=log_expense_created,
+        )
+        db.session.commit()
+        flash("Expense saved.", "success")
+        return redirect(expense_detail_url(expense))
+    except ValueError as exc:
+        db.session.rollback()
+        flash(str(exc), "error")
+        return redirect(url_for("expenses"))
+
+
+@app.route("/settle")
+@login_required
+def settle_up():
+    balances = get_global_settlements()
+    sorted_balances = {
+        name: amt
+        for name, amt in sorted(balances.items(), key=lambda item: abs(item[1]), reverse=True)
+        if abs(amt) > 0.01
+    }
+    return render_template("settle_up.html", balances=sorted_balances)
 
 
 
@@ -1346,7 +1416,7 @@ def analytics():
 @login_required
 def new_split():
     """One-off receipt split: scan items → guest links (never tied to a group)."""
-    members_for_form = get_split_candidate_users()
+    friend_candidates = get_split_friend_candidates()
 
     if request.method == "POST":
         member_ids = parse_participant_ids_from_form(
@@ -1374,9 +1444,10 @@ def new_split():
 
     return render_template(
         "new_split.html",
-        members=members_for_form,
+        friend_candidates=friend_candidates,
         expense_form_action=url_for("new_split"),
         scan_receipt_url=url_for("scan_receipt_standalone"),
+        ocr_available=tesseract_is_available(app.config.get("TESSERACT_CMD") or None),
     )
 
 
@@ -1975,7 +2046,7 @@ def guest_pay(token):
         payer=payer,
         guest=guest,
         token=token,
-        khalti_enabled=khalti_configured(app),
+        khalti_enabled=khalti_checkout_available(),
         stripe_enabled=stripe_configured(app),
         payment_confirmed=payment_confirmed,
     )
@@ -2008,9 +2079,13 @@ def guest_pay_now(token):
         )
 
     if not khalti_configured(app):
+        if app.config.get("KHALTI_DEV_MODE") and _request_is_local_dev():
+            return redirect(url_for("guest_pay_khalti_dev", token=token))
+        return redirect(url_for("guest_pay", token=token))
+
+    if (link.amount_owed or 0) < 10:
         flash(
-            "Khalti is not configured. Add test KHALTI_SECRET_KEY to .env "
-            "(see config.py comments) or use Mark as paid.",
+            "Khalti requires at least Rs 10 per payment. Use cash / bank transfer for smaller amounts.",
             "error",
         )
         return redirect(url_for("guest_pay", token=token))
@@ -2039,6 +2114,36 @@ def guest_pay_now(token):
         return redirect(url_for("guest_pay", token=token))
 
     return redirect(data["payment_url"])
+
+
+@app.route("/pay/<path:token>/khalti-dev", methods=["GET", "POST"])
+def guest_pay_khalti_dev(token):
+    """Sandbox Khalti UI for local dev when KHALTI_SECRET_KEY is not set."""
+    if not app.config.get("KHALTI_DEV_MODE") or not _request_is_local_dev():
+        return render_template("pay_guest.html", invalid=True), 404
+
+    link = get_payment_link_for_token(token)
+    if link is None:
+        return render_template("pay_guest.html", invalid=True), 404
+    if link.status == PAYMENT_STATUS_PAID:
+        return redirect(
+            url_for("guest_pay", token=token, payment_confirmed="1")
+        )
+
+    expense = link.expense
+    guest = link.user
+
+    if request.method == "POST":
+        mark_payment_link_paid(link, "khalti_dev")
+        return redirect(url_for("guest_pay", token=token, payment_confirmed="1"))
+
+    return render_template(
+        "pay_khalti_dev.html",
+        link=link,
+        expense=expense,
+        guest=guest,
+        token=token,
+    )
 
 
 @app.route("/pay/<path:token>/stripe", methods=["POST"])

@@ -1,6 +1,12 @@
 <script>
 (function () {
-    const scanReceiptUrl = {{ (scan_receipt_url|default(url_for('scan_receipt', trip_id=trip.id))) | tojson }};
+    {% if scan_receipt_url is defined %}
+    const scanReceiptUrl = {{ scan_receipt_url | tojson }};
+    {% elif trip is defined %}
+    const scanReceiptUrl = {{ url_for('scan_receipt', trip_id=trip.id) | tojson }};
+    {% else %}
+    const scanReceiptUrl = {{ url_for('scan_receipt_standalone') | tojson }};
+    {% endif %}
     const members = [
         {% for member in members %}
         { id: {{ member.id }}, name: {{ member.name|tojson }} }{% if not loop.last %},{% endif %}

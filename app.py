@@ -1594,6 +1594,8 @@ def group_details(trip_id):
         expense_pay_links=expense_pay_links,
         open_new_expense=request.args.get("new") == "1",
         activity_items=activity_items,
+        expense_form_action=url_for("add_expense", trip_id=trip.id),
+        scan_receipt_url=url_for("scan_receipt", trip_id=trip.id),
     )
 
 

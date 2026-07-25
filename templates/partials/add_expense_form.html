@@ -1,4 +1,4 @@
-<form method="POST" action="{{ expense_form_action|default(url_for('add_expense', trip_id=trip.id)) }}" id="expense-form" class="expense-form form-stack" enctype="multipart/form-data">
+<form method="POST" action="{% if expense_form_action is defined %}{{ expense_form_action }}{% else %}{{ url_for('add_expense', trip_id=trip.id) }}{% endif %}" id="expense-form" class="expense-form form-stack" enctype="multipart/form-data">
 
 {% include "partials/add_expense_form_fields.html" %}
 

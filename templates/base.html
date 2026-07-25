@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SplitBills</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/sw-app.css') }}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="{% if current_user.is_authenticated %}app-authenticated has-tab-bar{% endif %}" {% block body_attrs %}{% endblock %}>
+
+{% if not current_user.is_authenticated %}
+<header class="public-nav">
+    <div class="public-nav__inner">
+        <a href="/" class="app-nav__brand">
+            <span class="app-nav__mark">SB</span>
+            <span>SplitBills</span>
+        </a>
+        <ul class="public-nav__links">
+            <li><a href="/#features">Features</a></li>
+            <li><a href="/login">Log in</a></li>
+        </ul>
+        <div class="public-nav__actions">
+            <button type="button" class="btn-secondary btn-sm" data-theme-toggle aria-label="Toggle theme">Theme</button>
+            <a href="/register" class="btn-primary btn-sm">Sign up</a>
+        </div>
+    </div>
+</header>
+{% endif %}
+
+<div class="main-container">
+
+<script id="flash-messages-json" type="application/json">{{ get_flashed_messages(with_categories=true) | tojson }}</script>
+
+{% block content %}
+{% endblock %}
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+<script src="{{ url_for('static', filename='js/app-ui.js') }}"></script>
+{% if current_user.is_authenticated %}
+{% include "partials/mobile_tab_bar.html" %}
+{% include "partials/quick_expense_modal.html" %}
+{% endif %}
+</body>
+</html>

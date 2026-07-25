@@ -1,0 +1,13 @@
+<div class="form-stack guest-pay-actions">
+    {% if stripe_enabled %}
+    <form method="POST" action="{{ url_for('guest_pay_stripe', token=token) }}">
+        <button type="submit" class="btn-primary btn-block btn-stripe">Pay with card</button>
+    </form>
+    {% endif %}
+    <form method="POST" action="{{ url_for('guest_pay_now', token=token) }}">
+        <button type="submit" class="btn-primary btn-block btn-khalti">Pay with Khalti</button>
+    </form>
+    <form method="POST" action="{{ url_for('guest_pay_mark_paid', token=token) }}">
+        <button type="submit" class="btn-secondary btn-block">I paid cash / bank transfer</button>
+    </form>
+</div>

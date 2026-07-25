@@ -1,0 +1,15 @@
+{% from "macros/ui.html" import user_avatar %}
+<header class="app-nav">
+    <div class="app-nav__inner">
+        <a href="{{ url_for('expenses') }}" class="app-nav__brand">
+            <span class="app-nav__mark">SB</span>
+            <span>SplitBills</span>
+        </a>
+        <div class="app-nav__actions">
+            {% include "partials/notification_bell.html" %}
+            <span class="sw-topbar__name hide-mobile">{{ current_user.name }}</span>
+            {{ user_avatar(current_user, 'sm') }}
+            <a href="{{ url_for('logout') }}" class="link-muted hide-mobile">Log out</a>
+        </div>
+    </div>
+</header>

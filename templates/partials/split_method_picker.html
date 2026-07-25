@@ -1,0 +1,25 @@
+{# Three-way split choice (Split-app style). Sets hidden checkboxes via split-flow.js #}
+<section class="split-method-section" aria-labelledby="split-method-heading">
+    <h2 id="split-method-heading" class="text-h3">Choose how to split</h2>
+    <p class="text-caption">Pick items for receipts, split evenly for quick bills, or file under a group.</p>
+    <div class="split-method-grid" role="radiogroup" aria-labelledby="split-method-heading">
+        <label class="split-method-card split-method-card--items">
+            <input type="radio" name="split_flow" value="pick_items" class="split-method-radio">
+            <span class="split-method-card__icon" aria-hidden="true">☰</span>
+            <span class="split-method-card__title">Pick items</span>
+            <span class="split-method-card__sub">Everyone taps what they had</span>
+        </label>
+        <label class="split-method-card split-method-card--even">
+            <input type="radio" name="split_flow" value="split_evenly" class="split-method-radio" checked>
+            <span class="split-method-card__icon" aria-hidden="true">=</span>
+            <span class="split-method-card__title">Split evenly</span>
+            <span class="split-method-card__sub">Same share for each person</span>
+        </label>
+        <label class="split-method-card split-method-card--group">
+            <input type="radio" name="split_flow" value="use_group" class="split-method-radio">
+            <span class="split-method-card__icon" aria-hidden="true">◫</span>
+            <span class="split-method-card__title">Split group</span>
+            <span class="split-method-card__sub">Rent, trips, roommates</span>
+        </label>
+    </div>
+</section>

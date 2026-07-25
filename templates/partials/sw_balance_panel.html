@@ -1,0 +1,16 @@
+{% from "macros/balance.html" import balance_card %}
+<aside class="sw-balance-panel" aria-label="Your balance">
+    <p class="sw-balance-panel__label">Your total balance</p>
+    <div class="sw-balance-panel__card">
+        {{ balance_card(nav_net_balance, '', conversion_rate) }}
+    </div>
+    {% if nav_net_balance > 0.01 %}
+    <p class="sw-balance-panel__hint text-success">Overall, you are owed</p>
+    {% elif nav_net_balance < -0.01 %}
+    <p class="sw-balance-panel__hint text-danger">Overall, you owe</p>
+    {% else %}
+    <p class="sw-balance-panel__hint">You are all settled up</p>
+    {% endif %}
+    <a href="{{ url_for('settle_up') }}" class="btn-secondary btn-block sw-balance-panel__settle">Settle up</a>
+    <a href="{{ url_for('new_split') }}" class="sw-balance-panel__secondary">Receipt split (scan items)</a>
+</aside>

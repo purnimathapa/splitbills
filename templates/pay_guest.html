@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% from "macros/ui.html" import initials_avatar %}
+
+{% block body_attrs %}{% if payment_confirmed and not invalid and link.status == 'paid' %} data-toast-success="Payment received — thank you!"{% endif %}{% endblock %}
+
+{% block content %}
+
+<div class="pay-page">
+    <div class="card pay-card">
+
+        {% if invalid %}
+            <h1>Invalid link</h1>
+            <p class="text-caption">This payment link is invalid or has expired.</p>
+            <a href="{{ url_for('home') }}" class="btn-secondary btn-block">Go home</a>
+        {% else %}
+
+            <div class="pay-card__trust">
+                <span class="app-nav__mark">SB</span>
+                <span class="text-caption">Secure payment · SplitBills</span>
+            </div>
+
+            {% if link.status == 'paid' or payment_confirmed %}
+            <div class="empty-state">
+                <p class="balance-card__amount--settled">✓</p>
+                <h2 class="text-success">Payment complete</h2>
+                <p class="text-caption">Your share for <strong>{{ expense.description }}</strong> is settled.</p>
+                {% if link.paid_at %}
+                <p class="text-small">{{ link.paid_at.strftime('%d %b %Y') }}{% if link.payment_provider %} · {{ link.payment_provider|capitalize }}{% endif %}</p>
+                {% endif %}
+            </div>
+            {% else %}
+
+            <p class="tag">No account needed</p>
+            <h1>Pay your share</h1>
+            <p class="text-caption">{{ trip.trip_name if trip else 'Shared expense' }}</p>
+
+            <p class="pay-amount wallet-hero__amount tabular-nums">{{ currency }} {{ (link.amount_owed * conversion_rate)|round(2) }}</p>
+            <p class="text-caption">{{ expense.description }}</p>
+
+            {% if payer %}
+            <div class="pay-requester">
+                {{ initials_avatar(payer.name, 'md') }}
+                <div>
+                    <p class="text-caption">Requested by</p>
+                    <strong>{{ payer.name }}</strong>
+                    <p class="text-small">They paid the bill — you're settling your portion.</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <p class="text-caption">Hi {{ guest.name }}, choose how to pay:</p>
+
+            {% set khalti_ok = khalti_enabled and (link.amount_owed * conversion_rate) >= 10 %}
+            {% set online_ok = stripe_enabled or khalti_ok %}
+
+            <div class="form-stack">
+                {% if stripe_enabled %}
+                <form method="POST" action="{{ url_for('guest_pay_stripe', token=token) }}">
+                    <button type="submit" class="btn-primary btn-block btn-stripe">Pay with card</button>
+                </form>
+                {% endif %}
+                {% if khalti_ok %}
+                <form method="POST" action="{{ url_for('guest_pay_now', token=token) }}">
+                    <button type="submit" class="btn-primary btn-block btn-khalti">Pay with Khalti</button>
+                </form>
+                {% elif khalti_enabled and not khalti_ok %}
+                <p class="text-caption text-warn">Khalti needs at least {{ currency }} 10 per payment — use cash/bank below for smaller amounts.</p>
+                {% endif %}
+                <form method="POST" action="{{ url_for('guest_pay_mark_paid', token=token) }}">
+                    <button type="submit" class="btn-{% if online_ok %}secondary{% else %}primary{% endif %} btn-block">I paid cash / bank transfer</button>
+                </form>
+            </div>
+
+            <div class="pay-providers">
+                <span class="pay-providers__label">Payment methods</span>
+                {% if stripe_enabled %}
+                <span class="provider-logo provider-logo--stripe" aria-label="Stripe">
+                    <svg viewBox="0 0 60 25" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">
+                        <path fill="#635BFF" d="M59.64 14.28h-8.06c.19 1.93 1.6 2.55 3.2 2.55 1.64 0 2.96-.37 4.05-.95v3.32a8.33 8.33 0 0 1-4.56 1.1c-4.01 0-6.83-2.5-6.83-7.48 0-4.19 2.39-7.52 6.3-7.52 3.92 0 5.96 3.28 5.96 7.5 0 .4-.04 1.01-.06 1.48zm-5.92-5.62c-1.03 0-2.17.73-2.17 2.58h4.25c0-1.85-1.07-2.58-2.08-2.58zM40.95 20.3c-1.44 0-2.32-.6-2.9-1.04l-.02 4.63-4.12.87V5.57h3.76l.08 1.02a4.7 4.7 0 0 1 3.23-1.29c2.9 0 5.62 2.6 5.62 7.4 0 5.23-2.7 7.6-5.65 7.6zM40 8.95c-.95 0-1.54.34-1.97.81l.02 6.12c.4.44.98.78 1.95.78 1.52 0 2.54-1.65 2.54-3.87 0-2.21-1.02-3.87-2.54-3.87zM28.24 5.57h4.13v14.44h-4.13V5.57zm0-4.7L32.37 0v3.36l-4.13.88V.87zm-6.88 4.7h3.76l.08 1.02c.88-.80 2.02-1.28 3.58-1.28 2.34 0 3.62 1.57 3.62 4.06v10.64h-4.12V9.64c0-1.25-.45-1.85-1.47-1.85-.86 0-1.41.47-1.69 1.01v11.21h-4.12V5.57h-.04zm-8.08 14.44H8.94V5.57h4.09l.08 1.02c1.06-1.12 2.48-1.28 3.87-1.28.26 0 .51.02.76.06v3.79a6.7 6.7 0 0 0-1-.08c-1.52 0-2.52.84-2.52 2.45v8.12zM0 5.57h4.13v14.44H0V5.57z"/>
+                    </svg>
+                </span>
+                {% endif %}
+                {% if khalti_ok %}
+                <span class="provider-logo provider-logo--khalti" aria-label="Khalti">
+                    <svg viewBox="0 0 80 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">
+                        <text x="0" y="18" fill="#5C2D91" font-family="system-ui,sans-serif" font-size="18" font-weight="700">Khalti</text>
+                    </svg>
+                </span>
+                {% endif %}
+                <span class="provider-logo" aria-label="Manual bank transfer">
+                    <span class="text-small">Cash / bank</span>
+                </span>
+            </div>
+            {% if not online_ok %}
+            <p class="text-small">Online checkout is not set up on this server — tap <strong>I paid cash / bank transfer</strong> after you pay the payer directly.</p>
+            {% endif %}
+
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

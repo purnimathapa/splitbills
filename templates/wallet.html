@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% from "macros/empty_state.html" import empty_state %}
+
+{% block content %}
+
+<div class="app-layout">
+    {% include "partials/app_nav.html" %}
+    <main class="app-main">
+
+        <header class="page-head">
+            <div>
+                <h1>Wallet</h1>
+                <p class="text-caption">Payments collected from guest links (tracking — not a bank balance).</p>
+            </div>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card stat-card--accent">
+                <h2>{{ currency }} {{ (collected_total * conversion_rate)|round(2) }}</h2>
+                <p>Collected</p>
+            </div>
+            <div class="stat-card">
+                <h2>{{ currency }} {{ (pending_total * conversion_rate)|round(2) }}</h2>
+                <p>Still pending</p>
+            </div>
+        </div>
+
+        <section class="page-section">
+            <div class="page-section__head">
+                <h2>Payment history</h2>
+                <a href="{{ url_for('collect') }}" class="link-muted">Pending →</a>
+            </div>
+            <div class="card card--flush">
+                {% if collected_links %}
+                    {% for row in collected_links %}
+                    <div class="list-row">
+                        <div>
+                            <strong>{{ row.guest.name if row.guest else 'Guest' }}</strong>
+                            <p class="text-caption">{{ row.expense.description if row.expense else '' }}</p>
+                            <span class="badge badge-success">{{ row.link.payment_provider or 'paid' }}</span>
+                        </div>
+                        <strong>{{ currency }} {{ (row.link.amount_owed * conversion_rate)|round(2) }}</strong>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    {{ empty_state('✓', 'No payments yet', 'When guests pay through your links, they show up here.', url_for('dashboard'), 'Go home') }}
+                {% endif %}
+            </div>
+        </section>
+
+    </main>
+</div>
+
+{% endblock %}

@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% from "macros/balance.html" import balance_card %}
+{% from "macros/empty_state.html" import empty_state %}
+
+{% block content %}
+
+<div class="app-layout">
+    {% include "partials/app_nav.html" %}
+
+    <main class="app-main dashboard-home">
+
+        <header class="split-home-header">
+            <p class="split-home-greeting">Hey {{ current_user.name.split()[0] }}!</p>
+            <p class="text-caption">Scan a receipt, share links, get paid back</p>
+        </header>
+
+        <section class="dashboard-home__hero">
+            {{ balance_card(net_balance, '', conversion_rate) }}
+        </section>
+
+        <section class="card dashboard-chart-card page-section">
+            <h2 class="text-h3">Collections</h2>
+            <p class="text-caption">Pending vs received from guest links</p>
+            <div class="dashboard-chart-wrap" data-chart-skeleton>
+                <canvas id="dashboard-collect-chart" aria-label="Collection chart"></canvas>
+            </div>
+        </section>
+
+        <section class="page-section" id="need-collect">
+            <div class="page-section__head">
+                <h2>Need to collect</h2>
+                {% if payment_hub.pending_count %}
+                <span class="badge badge-neutral">{{ payment_hub.pending_count }}</span>
+                {% endif %}
+            </div>
+
+            {% if payment_hub.pending_links %}
+            <div class="need-collect-list">
+                {% for row in payment_hub.pending_links[:20] %}
+                <article class="need-collect-row card">
+                    <div class="need-collect-row__main">
+                        <p class="need-collect-row__title">{{ row.expense.description if row.expense else 'Expense' }}</p>
+                        <p class="text-caption">
+                            {% if row.guest %}{{ row.guest.name }}{% else %}Guest{% endif %}
+                            {% if row.is_claim_link %}
+                            · tap items on link
+                            {% elif row.link.amount_owed %}
+                            · {{ currency }} {{ (row.link.amount_owed * conversion_rate)|round(2) }}
+                            {% endif %}
+                        </p>
+                    </div>
+                    <button type="button" class="btn-primary btn-sm need-collect-row__share copy-pay-link" data-url="{{ row.url }}" data-copy-label="Link copied">Share link</button>
+                </article>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="card">
+                {{ empty_state('💸', 'Nothing to collect', 'Tap + to scan a receipt and send pick-your-items links.', url_for('new_split'), 'New split') }}
+            </div>
+            {% endif %}
+        </section>
+
+    </main>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var ctx = document.getElementById('dashboard-collect-chart');
+    if (!ctx || typeof Chart === 'undefined') return;
+    var pending = {{ chart_pending|tojson }};
+    var collected = {{ chart_collected|tojson }};
+    var textColor = getComputedStyle(document.documentElement).getPropertyValue('--color-text-secondary').trim() || '#64748b';
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Pending', 'Collected'],
+            datasets: [{
+                data: [Math.max(pending, 0.01), Math.max(collected, 0.01)],
+                backgroundColor: ['#9333ea', '#059669'],
+                borderWidth: 0,
+            }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '68%',
+            plugins: {
+                legend: { position: 'bottom', labels: { color: textColor, boxWidth: 12 } },
+            },
+        },
+    });
+});
+</script>
+
+{% endblock %}

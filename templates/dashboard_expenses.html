@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% from "macros/ui.html" import user_avatar %}
+
+{% block content %}
+
+<div class="app-layout">
+    {% include "partials/app_nav.html" %}
+    <main class="app-main">
+
+        <header class="page-head">
+            <div>
+                <h1>Expenses by group</h1>
+                <p class="text-caption">Grand total {{ currency }} {{ (total_expenses * conversion_rate)|round(2) }}</p>
+            </div>
+        </header>
+
+        {% if standalone_data %}
+        <section class="page-section">
+            <div class="page-section__head">
+                <h2>One-off splits</h2>
+                <span class="badge badge-neutral">{{ currency }} {{ (standalone_data.total * conversion_rate)|round(2) }}</span>
+            </div>
+            {% if standalone_data.settlements %}
+            <div class="card card-section">
+                <h3 class="text-small">Suggested settlements</h3>
+                <ul class="settlement-list">
+                    {% for s in standalone_data.settlements %}
+                    <li class="text-caption"><strong>{{ s.from }}</strong> → <strong>{{ s.to }}</strong> · {{ currency }} {{ (s.amount * conversion_rate)|round(2) }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            <div class="card card--flush">
+                {% for e in standalone_data.expenses %}
+                <a class="list-row" href="{{ expense_url(e) }}">
+                    <div class="expense-row__main">
+                        {{ user_avatar(e.payer, 'sm') }}
+                        <span>{{ e.description }}</span>
+                    </div>
+                    <strong>{{ currency }} {{ (e.amount * conversion_rate)|round(2) }}</strong>
+                </a>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        {% for t in trip_data %}
+        <section class="page-section">
+            <div class="page-section__head">
+                <h2><a href="{{ url_for('group_details', trip_id=t.trip.id) }}">{{ t.trip.trip_name }}</a></h2>
+                <span class="badge {% if t.trip.is_active %}badge-success{% else %}badge-neutral{% endif %}">
+                    {{ currency }} {{ (t.total * conversion_rate)|round(2) }}
+                </span>
+            </div>
+
+            {% if t.settlements %}
+            <div class="card card-section">
+                <h3 class="text-small">Suggested settlements</h3>
+                <ul class="settlement-list">
+                    {% for s in t.settlements %}
+                    <li class="text-caption"><strong>{{ s.from }}</strong> → <strong>{{ s.to }}</strong> · {{ currency }} {{ (s.amount * conversion_rate)|round(2) }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <div class="card card--flush">
+                {% for e in t.expenses %}
+                <a class="list-row" href="{{ url_for('expense_detail', trip_id=t.trip.id, expense_id=e.id) }}">
+                    <div class="expense-row__main">
+                        {{ user_avatar(e.payer, 'sm') }}
+                        <span>{{ e.description }}</span>
+                    </div>
+                    <strong>{{ currency }} {{ (e.amount * conversion_rate)|round(2) }}</strong>
+                </a>
+                {% else %}
+                <div class="empty-state"><p class="text-caption">No expenses in this group.</p></div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endfor %}
+
+    </main>
+</div>
+
+{% endblock %}

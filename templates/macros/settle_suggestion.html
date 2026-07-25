@@ -1,0 +1,36 @@
+{% macro settle_suggestion_banner(suggestion) %}
+{% if suggestion %}
+<div class="settle-suggestion-banner" role="status">
+    <div class="settle-suggestion-banner__text">
+        <p class="settle-suggestion-banner__title">
+            You and <strong>{{ suggestion.other_name }}</strong> are only
+            <strong>{{ currency }} {{ (suggestion.amount * conversion_rate)|round(2) }}</strong> apart —
+            settle up now?
+        </p>
+        {% if suggestion.viewer_owes %}
+        <p class="text-caption">You're slightly behind — paying now keeps things fair.</p>
+        {% else %}
+        <p class="text-caption">They're almost even with you — send or copy their payment link.</p>
+        {% endif %}
+    </div>
+    <div class="settle-suggestion-banner__actions">
+        <a href="{{ suggestion.button_url }}" class="btn-primary btn-sm"{% if suggestion.copy_url %} data-copy-url="{{ suggestion.copy_url }}"{% endif %}>
+            {{ suggestion.button_label }}
+        </a>
+        {% if suggestion.copy_url %}
+        <button type="button" class="btn-secondary btn-sm copy-pay-link" data-url="{{ suggestion.copy_url }}">Copy link</button>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro settle_suggestion_list(suggestions) %}
+{% if suggestions %}
+<div class="settle-suggestion-stack">
+    {% for suggestion in suggestions %}
+    {{ settle_suggestion_banner(suggestion) }}
+    {% endfor %}
+</div>
+{% endif %}
+{% endmacro %}

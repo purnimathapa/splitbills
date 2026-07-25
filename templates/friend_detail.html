@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% from "macros/ui.html" import user_avatar %}
+{% from "macros/settle_suggestion.html" import settle_suggestion_banner %}
+
+{% block content %}
+
+<div class="app-layout">
+    {% include "partials/app_nav.html" %}
+    <main class="app-main">
+
+        <header class="page-head">
+            <div>
+                <h1>{{ friend.name }}</h1>
+                <p class="text-caption">Shared groups and expenses.</p>
+            </div>
+            <div class="page-head__actions">
+                <a href="{{ url_for('friend_export', user_id=friend.id) }}" class="btn-secondary btn-sm">Export CSV</a>
+                <a href="{{ url_for('dashboard_friends') }}" class="btn-secondary btn-sm">← Friends</a>
+            </div>
+        </header>
+
+        {{ settle_suggestion_banner(settle_suggestion) }}
+
+        <div class="stats-grid">
+            <div class="stat-card stat-card--accent">
+                <h2>{{ currency }} {{ (total_spent * conversion_rate)|round(2) }}</h2>
+                <p>Total paid</p>
+            </div>
+            {% for trip_id, info in per_trip.items() %}
+            <div class="stat-card">
+                <h2>{{ currency }} {{ (info.total * conversion_rate)|round(2) }}</h2>
+                <p>{{ info.trip_name }} · {{ info.count }} exp.</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        <section class="page-section">
+            <h2>Expenses paid by {{ friend.name }}</h2>
+            <div class="card card--flush">
+                {% if shared_expenses %}
+                    {% for e in shared_expenses %}
+                    <div class="list-row">
+                        <div class="expense-row__main">
+                            {{ user_avatar(friend, 'sm') }}
+                            <div>
+                                <strong>{{ e.description }}</strong>
+                                <p class="text-caption">
+                                    {% set pt = per_trip.get(e.trip_id) %}
+                                    {% if e.created_at %}{{ e.created_at.strftime('%d %b %Y') }}{% endif %}
+                                    {% if pt %} · {{ pt.trip_name }}{% elif not e.trip_id %} · One-off{% endif %}
+                                </p>
+                            </div>
+                        </div>
+                        <strong>{{ currency }} {{ (e.amount * conversion_rate)|round(2) }}</strong>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state"><p class="text-caption">No shared expenses yet.</p></div>
+                {% endif %}
+            </div>
+        </section>
+
+    </main>
+</div>
+
+{% endblock %}

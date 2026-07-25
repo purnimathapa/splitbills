@@ -1,0 +1,18 @@
+{% macro user_initials(name) -%}
+{{ (name or '?')[:1]|upper }}
+{%- endmacro %}
+
+{% macro user_avatar(user, size='md', class='') -%}
+{% set bg = user.name|avatar_color %}
+{% set size_class = 'avatar--' ~ size %}
+<div class="avatar {{ size_class }} {{ class }}" style="--avatar-bg: {{ bg }};" title="{{ user.name }}" aria-hidden="true">
+    {{ user_initials(user.name) }}
+</div>
+{%- endmacro %}
+
+{% macro initials_avatar(name, size='md', class='') -%}
+{% set bg = name|avatar_color %}
+<div class="avatar avatar--{{ size }} {{ class }}" style="--avatar-bg: {{ bg }};" title="{{ name }}" aria-hidden="true">
+    {{ user_initials(name) }}
+</div>
+{%- endmacro %}

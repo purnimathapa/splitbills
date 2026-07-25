@@ -1,0 +1,32 @@
+<div class="notif-bell" data-notif-bell>
+    <button type="button" class="notif-bell__toggle btn-secondary btn-sm" aria-expanded="false" aria-controls="notif-panel" aria-label="Notifications">
+        🔔
+        {% if notification_unread_count %}
+        <span class="notif-bell__badge">{{ notification_unread_count if notification_unread_count < 10 else '9+' }}</span>
+        {% endif %}
+    </button>
+    <div id="notif-panel" class="notif-panel" hidden role="region" aria-label="Notifications">
+        <div class="notif-panel__head">
+            <strong>Notifications</strong>
+            {% if notification_unread_count %}
+            <form method="POST" action="{{ url_for('notifications_read_all') }}">
+                <button type="submit" class="link-muted text-caption">Mark all read</button>
+            </form>
+            {% endif %}
+        </div>
+        <ul class="notif-panel__list">
+            {% for note in notification_preview %}
+            <li class="notif-panel__item {% if not note.read_at %}notif-panel__item--unread{% endif %}">
+                {% if note.href %}
+                <a href="{{ note.href }}">{{ note.message }}</a>
+                {% else %}
+                <span>{{ note.message }}</span>
+                {% endif %}
+                <time class="text-caption">{{ note.created_at|time_ago }}</time>
+            </li>
+            {% else %}
+            <li class="notif-panel__empty text-caption">You're all caught up.</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>

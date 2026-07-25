@@ -1,6 +1,11 @@
 Flask
 Flask-Bcrypt
 Flask-Login
+Flask-Mail
 Flask-SQLAlchemy
 PyMySQL
 requests
+APScheduler
+Pillow
+pytesseract
+stripe>=8.0.0

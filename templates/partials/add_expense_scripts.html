@@ -1,0 +1,238 @@
+<script>
+(function () {
+    {% if scan_receipt_url is defined %}
+    const scanReceiptUrl = {{ scan_receipt_url | tojson }};
+    {% elif trip is defined %}
+    const scanReceiptUrl = {{ url_for('scan_receipt', trip_id=trip.id) | tojson }};
+    {% else %}
+    const scanReceiptUrl = {{ url_for('scan_receipt_standalone') | tojson }};
+    {% endif %}
+    const members = [
+        {% for member in members %}
+        { id: {{ member.id }}, name: {{ member.name|tojson }} }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    const useItemized = document.getElementById('use_itemized');
+    const selfService = document.getElementById('self_service_items');
+    const selfServiceHint = document.getElementById('self-service-hint');
+    const simplePanel = document.getElementById('simple-split-panel');
+    const itemizedPanel = document.getElementById('itemized-panel');
+    const simpleAmount = document.getElementById('simple_amount');
+    const splitMethod = document.getElementById('split_method');
+    const splitPanels = {
+        equal: document.getElementById('split-panel-equal'),
+        exact: document.getElementById('split-panel-exact'),
+        percentage: document.getElementById('split-panel-percentage'),
+        shares: document.getElementById('split-panel-shares'),
+    };
+    const itemRows = document.getElementById('item-rows');
+    const rowCountInput = document.getElementById('item_row_count');
+    const addItemBtn = document.getElementById('add-item-row');
+    const subtotalEl = document.getElementById('items-subtotal');
+    const grandTotalEl = document.getElementById('items-grand-total');
+    const taxTipInput = document.getElementById('tax_tip_amount');
+    const receiptInput = document.getElementById('receipt-input');
+    const scanReceiptBtn = document.getElementById('scan-receipt-btn');
+    const ocrStatus = document.getElementById('ocr-status');
+    if (!useItemized) return;
+
+    let rowIndex = 0;
+
+    function showOcrStatus(message, tone) {
+        ocrStatus.hidden = false;
+        ocrStatus.textContent = message;
+        ocrStatus.className = 'ocr-status ocr-status--' + (tone || 'info');
+    }
+
+    function toggleSplitPanels() {
+        if (!splitMethod || splitMethod.tagName === 'INPUT') return;
+        const method = splitMethod.value || 'equal';
+        Object.keys(splitPanels).forEach(function (key) {
+            const panel = splitPanels[key];
+            if (panel) panel.hidden = key !== method;
+        });
+        if (simpleAmount) simpleAmount.required = method === 'equal' && !useItemized.checked;
+        const exactAmt = document.getElementById('amount_exact');
+        const pctAmt = document.getElementById('amount_pct');
+        const shAmt = document.getElementById('amount_shares');
+        if (exactAmt) exactAmt.required = method === 'exact' && !useItemized.checked;
+        if (pctAmt) pctAmt.required = method === 'percentage' && !useItemized.checked;
+        if (shAmt) shAmt.required = method === 'shares' && !useItemized.checked;
+    }
+
+    function toggleSelfServiceUi() {
+        if (!selfService) return;
+        const on = selfService.checked;
+        if (selfServiceHint) selfServiceHint.hidden = !on;
+        itemRows.querySelectorAll('.item-row-assign').forEach(function (el) {
+            el.hidden = on;
+        });
+    }
+
+    function togglePanels() {
+        const on = useItemized.checked;
+        simplePanel.hidden = on;
+        itemizedPanel.hidden = !on;
+        if (splitMethod && splitMethod.tagName === 'SELECT') splitMethod.disabled = on;
+        if (!on) toggleSplitPanels();
+        else {
+            if (simpleAmount) simpleAmount.required = false;
+        }
+        if (on && itemRows.children.length === 0) addItemRow();
+        toggleSelfServiceUi();
+        updateTotals();
+    }
+
+    function memberCheckboxes(index, checkAll) {
+        if (!members.length) return '<p class="form-hint">No trip members.</p>';
+        if (selfService && selfService.checked) {
+            return '<p class="text-caption item-row-assign-off">Guests pick items on their link — you don\'t assign food here.</p>';
+        }
+        return members.map(function (m) {
+            return '<label class="checkbox-inline"><input type="checkbox" name="item_users_' + index + '" value="' + m.id + '" class="item-user-cb"' + (checkAll ? ' checked' : '') + '>' + m.name + '</label>';
+        }).join('');
+    }
+
+    function addItemRow(prefill) {
+        const index = rowIndex++;
+        rowCountInput.value = String(rowIndex);
+        const checkAll = !!(prefill && prefill.checkAllMembers);
+        const row = document.createElement('div');
+        row.className = 'item-row';
+            row.innerHTML =
+            '<div class="item-row-grid">' +
+            '<input type="text" name="item_name_' + index + '" placeholder="Item name">' +
+            '<input type="number" name="item_price_' + index + '" class="item-price" placeholder="Price" min="0.01" step="0.01">' +
+            '<input type="number" name="item_quantity_' + index + '" class="item-qty" placeholder="Qty" min="0.01" step="0.01" value="1" required>' +
+            '<button type="button" class="btn-secondary btn-sm remove-item">Remove</button></div>' +
+            '<div class="item-row-assign"><span class="form-label">Assigned to</span>' + memberCheckboxes(index, checkAll) + '</div>';
+        itemRows.appendChild(row);
+        if (prefill) {
+            if (prefill.name) row.querySelector('[name="item_name_' + index + '"]').value = prefill.name;
+            if (prefill.price) row.querySelector('[name="item_price_' + index + '"]').value = prefill.price;
+            if (prefill.quantity) row.querySelector('[name="item_quantity_' + index + '"]').value = prefill.quantity;
+        }
+        row.querySelector('.remove-item').addEventListener('click', function () { row.remove(); updateTotals(); });
+        row.querySelectorAll('input').forEach(function (input) {
+            input.addEventListener('input', updateTotals);
+            input.addEventListener('change', updateTotals);
+        });
+        updateTotals();
+    }
+
+    function clearItemRows() {
+        itemRows.innerHTML = '';
+        rowIndex = 0;
+        rowCountInput.value = '0';
+    }
+
+    function prefillFromOcr(items) {
+        clearItemRows();
+        useItemized.checked = true;
+        togglePanels();
+        items.forEach(function (item) {
+            addItemRow({ name: item.name, price: item.price, quantity: item.quantity || 1, checkAllMembers: false });
+        });
+        updateTotals();
+        const section = document.getElementById('itemized-panel');
+        if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function applyMerchantHint(data) {
+        if (!data || !data.suggested_merchant) return;
+        const desc = document.getElementById('split-description');
+        if (desc && !desc.value.trim()) {
+            desc.value = data.suggested_merchant;
+        }
+    }
+
+    function updateTotals() {
+        let subtotal = 0;
+        itemRows.querySelectorAll('.item-row').forEach(function (row) {
+            const price = parseFloat(row.querySelector('.item-price')?.value || '0');
+            const qty = parseFloat(row.querySelector('.item-qty')?.value || '0');
+            if (price > 0 && qty > 0) subtotal += price * qty;
+        });
+        const taxTip = parseFloat(taxTipInput.value || '0') || 0;
+        subtotalEl.textContent = subtotal.toFixed(2);
+        grandTotalEl.textContent = (subtotal + taxTip).toFixed(2);
+    }
+
+    async function scanReceipt() {
+        const file = receiptInput.files && receiptInput.files[0];
+        if (!file) { showOcrStatus('Choose a receipt image first.', 'warn'); return; }
+        const form = document.getElementById('expense-form');
+        const autoFlow = form && form.dataset.flow === 'receipt-guest';
+        if (scanReceiptBtn) {
+            scanReceiptBtn.disabled = true;
+            scanReceiptBtn.textContent = autoFlow ? 'Scanning…' : 'Scanning…';
+        }
+        showOcrStatus('Reading receipt with AI…', 'warn');
+        const body = new FormData();
+        body.append('receipt', file);
+        try {
+            const response = await fetch(scanReceiptUrl, { method: 'POST', body: body, credentials: 'same-origin' });
+            const data = await response.json();
+            applyMerchantHint(data);
+            if (data.success && data.items && data.items.length) {
+                prefillFromOcr(data.items);
+                showOcrStatus(data.message || 'Items ready — guests pick on their links.', data.confidence === 'high' ? 'success' : 'warn');
+                if (window.SplitBillsUI && window.SplitBillsUI.toast) {
+                    window.SplitBillsUI.toast('Receipt read — check items below', data.confidence === 'high' ? 'success' : 'info');
+                }
+            } else if (data.items && data.items.length) {
+                prefillFromOcr(data.items);
+                showOcrStatus(data.message || 'Review items below.', 'warn');
+            } else {
+                showOcrStatus(data.message || 'Add items manually with + Add item.', 'warn');
+                if (!useItemized.checked) { useItemized.checked = true; togglePanels(); }
+                if (autoFlow && itemRows && itemRows.children.length === 0 && addItemBtn) {
+                    addItemBtn.click();
+                }
+            }
+            if (autoFlow && scanReceiptBtn) {
+                scanReceiptBtn.hidden = false;
+                scanReceiptBtn.textContent = 'Scan again';
+            }
+        } catch (e) {
+            showOcrStatus('Scan failed. Add items with + Add item.', 'warn');
+        } finally {
+            if (scanReceiptBtn) {
+                scanReceiptBtn.disabled = !(receiptInput.files && receiptInput.files.length);
+                if (!autoFlow) scanReceiptBtn.textContent = 'Scan receipt for line items';
+            }
+        }
+    }
+
+    receiptInput.addEventListener('change', function () {
+        const form = document.getElementById('expense-form');
+        const autoFlow = form && form.dataset.flow === 'receipt-guest';
+        if (scanReceiptBtn) scanReceiptBtn.disabled = !(receiptInput.files && receiptInput.files.length);
+        if (autoFlow && receiptInput.files && receiptInput.files.length) {
+            scanReceipt();
+        } else {
+            ocrStatus.hidden = true;
+        }
+    });
+    if (scanReceiptBtn) scanReceiptBtn.addEventListener('click', scanReceipt);
+    useItemized.addEventListener('change', togglePanels);
+    if (selfService) selfService.addEventListener('change', toggleSelfServiceUi);
+    if (splitMethod && splitMethod.tagName === 'SELECT') splitMethod.addEventListener('change', toggleSplitPanels);
+    addItemBtn.addEventListener('click', function () { addItemRow(); });
+    taxTipInput.addEventListener('input', updateTotals);
+    togglePanels();
+    toggleSplitPanels();
+
+    const isRecurring = document.getElementById('is_recurring');
+    const recurrencePanel = document.getElementById('recurrence-panel');
+    function toggleRecurrence() {
+        if (!recurrencePanel || !isRecurring) return;
+        recurrencePanel.hidden = !isRecurring.checked;
+    }
+    if (isRecurring) {
+        isRecurring.addEventListener('change', toggleRecurrence);
+        toggleRecurrence();
+    }
+})();
+</script>

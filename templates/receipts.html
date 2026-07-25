@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "macros/empty_state.html" import empty_state %}
+
+{% block content %}
+
+<div class="app-layout">
+    {% include "partials/app_nav.html" %}
+    <main class="app-main">
+
+        <header class="page-head">
+            <div>
+                <h1>Receipts</h1>
+                <p class="text-caption">Upload when adding an expense, then scan for line items.</p>
+            </div>
+            {% if first_active %}
+            <a href="{{ url_for('new_split', group_id=first_active.id) }}" class="btn-primary btn-sm">+ Add with receipt</a>
+            {% else %}
+            <a href="{{ url_for('create_group') }}" class="btn-primary btn-sm">Create group</a>
+            {% endif %}
+        </header>
+
+        <div class="card card--flush">
+            {% if receipt_expenses %}
+                {% for exp in receipt_expenses %}
+                <a class="list-row" href="{{ expense_url(exp) }}">
+                    <div>
+                        <strong>{{ exp.description }}</strong>
+                        <p class="text-caption">{% if exp.trip_id and exp.trip_id in trips_by_id %}{{ trips_by_id[exp.trip_id].trip_name }}{% else %}One-off split{% endif %}</p>
+                    </div>
+                    <img src="{{ url_for('static', filename=exp.receipt_image_url) }}" alt="" width="56" height="56" class="receipt-thumb">
+                </a>
+                {% endfor %}
+            {% else %}
+                {{ empty_state('🧾', 'No receipts yet', 'Attach a photo when creating a split, then scan for line items.', url_for('new_split'), 'New split') }}
+            {% endif %}
+        </div>
+
+    </main>
+</div>
+
+{% endblock %}

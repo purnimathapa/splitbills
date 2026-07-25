@@ -1,0 +1,45 @@
+<div class="sw-modal" id="quick-expense-modal" hidden>
+    <div class="sw-modal__backdrop" data-close-modal></div>
+    <div class="sw-modal__dialog" role="dialog" aria-labelledby="quick-expense-title">
+        <header class="sw-modal__header">
+            <h2 id="quick-expense-title">Add an expense</h2>
+            <button type="button" class="sw-modal__close" data-close-modal aria-label="Close">×</button>
+        </header>
+        <form method="POST" action="{{ url_for('quick_add_expense') }}" enctype="multipart/form-data" class="sw-modal__form">
+            <label class="sw-modal__label">With you and:</label>
+            <div class="sw-friend-pick">
+                {% if nav_friends %}
+                {% for friend in nav_friends %}
+                <label class="sw-friend-chip">
+                    <input type="checkbox" name="participant_user_ids" value="{{ friend.id }}">
+                    <span>{{ friend.name }}</span>
+                </label>
+                {% endfor %}
+                {% else %}
+                <p class="text-caption">Join or create a group to add friends, then come back here.</p>
+                {% endif %}
+            </div>
+
+            <div class="sw-amount-row">
+                <span class="sw-amount-row__icon" aria-hidden="true">🧾</span>
+                <div class="sw-amount-row__fields">
+                    <input class="sw-amount-input" type="number" name="amount" min="0.01" step="0.01" placeholder="0.00" required inputmode="decimal">
+                    <input class="input-field" type="text" name="description" placeholder="What was it for? (e.g. food)" required>
+                </div>
+            </div>
+
+            <p class="sw-split-summary">Paid by <strong>you</strong> and split <strong>equally</strong>.</p>
+            <input type="hidden" name="split_method" value="equal">
+            <input type="hidden" name="participant_user_ids" value="{{ current_user.id }}">
+
+            <label class="sw-modal__label">Notes or receipt (optional)</label>
+            <textarea class="input-field" name="remarks" rows="2" placeholder="Notes"></textarea>
+            <input class="input-field" type="file" name="receipt" accept="image/jpeg,image/png,image/gif,image/webp">
+
+            <footer class="sw-modal__footer">
+                <button type="button" class="btn-secondary" data-close-modal>Cancel</button>
+                <button type="submit" class="btn-primary">Save</button>
+            </footer>
+        </form>
+    </div>
+</div>

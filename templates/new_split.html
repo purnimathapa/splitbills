@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% from "macros/empty_state.html" import empty_state %}
+
+{% block content %}
+
+<div class="app-layout">
+    {% include "partials/app_nav.html" %}
+    <main class="app-main">
+
+        <header class="page-head">
+            <div>
+                <h1>New split</h1>
+                <p class="text-caption">Upload the receipt — we read the items. Friends tap what they ate on their link.</p>
+            </div>
+            <a href="{{ url_for('dashboard') }}" class="btn-secondary btn-sm">Cancel</a>
+        </header>
+
+        <form method="POST" action="{{ url_for('new_split') }}" id="expense-form" class="expense-form form-stack" enctype="multipart/form-data" novalidate data-flow="receipt-guest">
+
+            <section class="card card-section receipt-upload-card">
+                <h2 class="text-h3">1. Upload receipt</h2>
+                <p class="text-caption">Take a photo or choose from your gallery. Scanning starts automatically.</p>
+                <label class="btn-primary btn-block receipt-upload-label">
+                    Choose receipt photo
+                    <input class="receipt-upload-input" type="file" name="receipt" id="receipt-input" accept="image/jpeg,image/png,image/gif,image/webp" capture="environment">
+                </label>
+                <div id="ocr-status" class="ocr-status" role="status" hidden></div>
+                <button type="button" class="btn-secondary btn-sm btn-block" id="scan-receipt-btn" hidden>Scan again</button>
+                {% if not ocr_available %}
+                <p class="text-caption text-warn">Receipt scan needs <code>pip install Pillow pytesseract</code> and Tesseract (<code>brew install tesseract</code>). You can still add items by hand below.</p>
+                {% endif %}
+                <label class="form-label" for="split-description">Place name</label>
+                <input class="input-field" type="text" name="description" id="split-description" placeholder="Filled from receipt when possible">
+            </section>
+
+            <section class="card card-section">
+                <h2 class="text-h3">2. Items (from receipt)</h2>
+                {% include "partials/receipt_guest_split_fields.html" %}
+            </section>
+
+            <section class="card card-section">
+                <h2 class="text-h3">3. Who gets a link?</h2>
+                <p class="text-caption">Only people you add below get a personal link to pick items. You are always included as the payer.</p>
+                <ul class="participant-pick-list">
+                    <li>
+                        <span class="text-body">{{ current_user.name }} (you paid)</span>
+                    </li>
+                </ul>
+                <input type="hidden" name="participant_user_ids" value="{{ current_user.id }}">
+                {% if friend_candidates %}
+                <details class="participant-add-details">
+                    <summary class="btn-secondary btn-sm btn-block">Add people</summary>
+                    <ul class="participant-pick-list participant-pick-list--nested">
+                        {% for friend in friend_candidates %}
+                        <li>
+                            <label class="form-row-inline">
+                                <input type="checkbox" name="participant_user_ids" value="{{ friend.id }}">
+                                {{ friend.name }}
+                            </label>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </details>
+                {% else %}
+                {{ empty_state('👋', 'Need at least one friend', 'Friends need a free account once; then you can add them here for each receipt split.', url_for('create_group'), 'Invite friends') }}
+                {% endif %}
+            </section>
+
+            <button type="submit" class="btn-primary btn-block btn-new-split" id="create-split-btn">Create split &amp; share links</button>
+            <p class="text-caption text-center" id="form-error" role="alert" hidden></p>
+        </form>
+
+        {% include "partials/add_expense_scripts.html" %}
+        <script src="{{ url_for('static', filename='js/new-split.js') }}"></script>
+    </main>
+</div>
+
+{% endblock %}

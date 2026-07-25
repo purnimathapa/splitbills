@@ -1,0 +1,49 @@
+{% from "macros/ui.html" import user_avatar %}
+{% from "macros/empty_state.html" import empty_state %}
+{% macro activity_feed(items, show_trip=false, empty_icon='🧾', empty_title='No splits yet', empty_subtext='Create your first split — receipt scan, item claims, and payment links in one flow.') %}
+<ul class="activity-feed">
+    {% for entry in items %}
+    <li class="activity-feed__item">
+        <span class="activity-feed__icon" aria-hidden="true">{{ activity_icon(entry.action_type) }}</span>
+        <div class="activity-feed__body">
+            <p class="activity-feed__text">{{ entry.description }}</p>
+            <p class="activity-feed__meta">
+                {% if show_trip and entry.trip %}
+                <span>{{ entry.trip.trip_name }}</span> ·
+                {% endif %}
+                <time datetime="{{ entry.created_at.isoformat() if entry.created_at else '' }}">{{ entry.created_at|time_ago }}</time>
+            </p>
+        </div>
+        {% if entry.actor %}
+        {{ user_avatar(entry.actor, 'sm') }}
+        {% endif %}
+    </li>
+    {% else %}
+    <li class="activity-feed__empty">
+        {{ empty_state(empty_icon, empty_title, empty_subtext) }}
+    </li>
+    {% endfor %}
+</ul>
+{% endmacro %}
+
+{% macro activity_pagination(pagination, endpoint, trip_id=none) %}
+{% if pagination.pages > 1 %}
+<nav class="activity-feed__pager" aria-label="Activity pages">
+    {% if pagination.has_prev %}
+    {% if trip_id %}
+    <a class="btn-secondary btn-sm" href="{{ url_for(endpoint, page=pagination.prev_num, trip_id=trip_id) }}">← Newer</a>
+    {% else %}
+    <a class="btn-secondary btn-sm" href="{{ url_for(endpoint, page=pagination.prev_num) }}">← Newer</a>
+    {% endif %}
+    {% endif %}
+    <span class="text-caption">Page {{ pagination.page }} of {{ pagination.pages }}</span>
+    {% if pagination.has_next %}
+    {% if trip_id %}
+    <a class="btn-secondary btn-sm" href="{{ url_for(endpoint, page=pagination.next_num, trip_id=trip_id) }}">Older →</a>
+    {% else %}
+    <a class="btn-secondary btn-sm" href="{{ url_for(endpoint, page=pagination.next_num) }}">Older →</a>
+    {% endif %}
+    {% endif %}
+</nav>
+{% endif %}
+{% endmacro %}

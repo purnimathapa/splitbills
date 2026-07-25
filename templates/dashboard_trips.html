@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% from "macros/empty_state.html" import empty_state %}
+
+{% block content %}
+
+<div class="app-layout">
+    {% include "partials/app_nav.html" %}
+    <main class="app-main">
+
+        <header class="page-head">
+            <div>
+                <h1>Groups</h1>
+                <p class="text-caption">Open a group for receipts, splits, and payment links.</p>
+            </div>
+            <a href="{{ url_for('create_group') }}" class="btn-primary">+ New group</a>
+        </header>
+
+        <section class="page-section">
+            <div class="page-section__head">
+                <h2>Active</h2>
+                <span class="badge badge-success">{{ active_trips|length }}</span>
+            </div>
+            <div class="card card--flush">
+                {% if active_trips %}
+                    {% for t in active_trips %}
+                    <a class="list-row" href="{{ url_for('group_details', trip_id=t.trip.id) }}">
+                        <div>
+                            <strong>{{ t.trip.trip_name }}</strong>
+                            <p class="text-caption">{{ t.member_count }} members · {{ t.expense_count }} expenses</p>
+                        </div>
+                        <div class="stack-sm stack-sm--align-end">
+                            <span class="text-caption">Total {{ currency }} {{ (t.total * conversion_rate)|round(2) }}</span>
+                            <span class="text-caption">You paid {{ currency }} {{ (t.user_spent * conversion_rate)|round(2) }}</span>
+                        </div>
+                    </a>
+                    {% endfor %}
+                {% else %}
+                    {{ empty_state('✨', 'No active groups', 'Create a group for your next dinner, trip, or shared bills.', url_for('create_group'), 'Create group') }}
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="page-section">
+            <div class="page-section__head">
+                <h2>Closed</h2>
+                <span class="badge badge-neutral">{{ inactive_trips|length }}</span>
+            </div>
+            <div class="card card--flush">
+                {% if inactive_trips %}
+                    {% for t in inactive_trips %}
+                    <a class="list-row" href="{{ url_for('group_details', trip_id=t.trip.id) }}">
+                        <div>
+                            <strong>{{ t.trip.trip_name }}</strong>
+                            <p class="text-caption">{{ t.member_count }} members · {{ currency }} {{ (t.total * conversion_rate)|round(2) }}</p>
+                        </div>
+                        <span class="badge badge-neutral">Closed</span>
+                    </a>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state"><p class="text-caption">No closed groups.</p></div>
+                {% endif %}
+            </div>
+        </section>
+
+    </main>
+</div>
+
+{% endblock %}

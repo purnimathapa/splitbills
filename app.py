@@ -106,6 +106,14 @@ from settle_suggestions import (
     build_pairwise_suggestion_raw,
     find_pending_payment_link,
 )
+from standalone_balances import (
+    apply_standalone_to_pairwise_balances,
+    friend_user_ids_from_standalone,
+    net_balance_from_standalone,
+    standalone_expenses_between_users,
+    standalone_expenses_for_user,
+    compute_pairwise_net_standalone,
+)
 from analytics_data import (
     aggregate_category_spending,
     aggregate_spending_trend,
@@ -499,6 +507,7 @@ def get_user_net_balance(user_id: int) -> float:
                 net -= s["amount"]
             elif s["to"] == user.name:
                 net += s["amount"]
+    net += net_balance_from_standalone(user_id)
     return round(net, 2)
 
 
@@ -511,6 +520,7 @@ def get_all_friends():
         for m in members:
             if m.user_id != current_user.id:
                 friend_ids.add(m.user_id)
+    friend_ids.update(friend_user_ids_from_standalone(current_user.id))
     if not friend_ids:
         return []
     return User.query.filter(User.id.in_(friend_ids)).order_by(User.name).all()
@@ -539,6 +549,12 @@ def get_global_settlements():
             elif s["to"] == current_user.name:
                 # someone owes current user
                 net_balance[s["from"]] += s["amount"]
+
+    apply_standalone_to_pairwise_balances(
+        current_user.id,
+        current_user.name,
+        net_balance,
+    )
 
     return dict(net_balance)
 
@@ -711,10 +727,9 @@ def friend_detail(user_id):
     friend_memberships = TripMember.query.filter_by(user_id=friend.id).all()
     shared_trip_ids = [m.trip_id for m in friend_memberships if m.trip_id in user_trips]
 
-    if not shared_trip_ids:
-        shared_expenses = []
-        total_spent = 0
-    else:
+    shared_expenses = []
+    total_spent = 0.0
+    if shared_trip_ids:
         shared_expenses = (
             Expense.query.filter(Expense.trip_id.in_(shared_trip_ids), Expense.paid_by == friend.id)
             .order_by(Expense.created_at.desc())
@@ -722,17 +737,36 @@ def friend_detail(user_id):
         )
         total_spent = round(sum(e.amount or 0 for e in shared_expenses), 2)
 
+    standalone_paid = [
+        e
+        for e in standalone_expenses_between_users(current_user.id, friend.id)
+        if e.paid_by == friend.id
+    ]
+    if standalone_paid:
+        shared_expenses = sorted(
+            shared_expenses + standalone_paid,
+            key=lambda e: e.created_at or datetime.min,
+            reverse=True,
+        )
+        total_spent = round(
+            sum(e.amount or 0 for e in shared_expenses if e.paid_by == friend.id),
+            2,
+        )
+
     # Also compute per-trip breakdown
     per_trip = {}
     for e in shared_expenses:
-        per_trip.setdefault(e.trip_id, {"trip_name": None, "total": 0, "count": 0})
-        per_trip[e.trip_id]["total"] += e.amount or 0
-        per_trip[e.trip_id]["count"] += 1
+        key = e.trip_id
+        per_trip.setdefault(key, {"trip_name": None, "total": 0, "count": 0})
+        per_trip[key]["total"] += e.amount or 0
+        per_trip[key]["count"] += 1
 
-    # fill trip names
-    for trip_id in per_trip.keys():
-        trip = Trip.query.get(trip_id)
-        per_trip[trip_id]["trip_name"] = trip.trip_name if trip else "Unknown"
+    for trip_id in list(per_trip.keys()):
+        if trip_id is None:
+            per_trip[trip_id]["trip_name"] = "One-off splits"
+        else:
+            trip = Trip.query.get(trip_id)
+            per_trip[trip_id]["trip_name"] = trip.trip_name if trip else "Unknown"
 
     settle_suggestion = settle_suggestion_for_friend(friend, shared_trip_ids)
 
@@ -965,9 +999,30 @@ def dashboard_expenses():
             "member_spending": member_spending,
         })
 
+    standalone_expenses = standalone_expenses_for_user(current_user.id)
+    standalone_data = None
+    if standalone_expenses:
+        standalone_settlements: list[dict] = []
+        for expense in standalone_expenses:
+            members = get_expense_members(expense)
+            if len(members) < 2:
+                continue
+            standalone_settlements.extend(
+                calculate_settlement([expense], members)
+            )
+        standalone_data = {
+            "expenses": standalone_expenses,
+            "total": round(
+                sum(e.amount or 0 for e in standalone_expenses),
+                2,
+            ),
+            "settlements": standalone_settlements,
+        }
+
     return render_template(
         "dashboard_expenses.html",
         trip_data=trip_data,
+        standalone_data=standalone_data,
         total_expenses=total_expenses,
     )
 
@@ -1105,6 +1160,24 @@ def dashboard_friends():
                     "friend_spent": friend_spent_on_trip,
                 })
 
+        one_off = standalone_expenses_between_users(current_user.id, friend.id)
+        if one_off:
+            one_off_balance = compute_pairwise_net_standalone(
+                current_user.id, friend.id
+            )
+            one_off_spent = round(
+                sum(e.amount or 0 for e in one_off if e.paid_by == friend.id),
+                2,
+            )
+            shared_trips.append(
+                {
+                    "trip": None,
+                    "trip_label": "One-off splits",
+                    "balance": one_off_balance,
+                    "friend_spent": one_off_spent,
+                }
+            )
+
         net_balance = round(net_balances.get(friend.name, 0), 2)
 
         # total spent across shared trips (sum of friend_spent values)
@@ -1159,9 +1232,13 @@ def expenses():
     trip_names = {trip.id: trip.trip_name for trip in trips}
     totals_by_trip = defaultdict(float)
     counts_by_trip = defaultdict(int)
+    standalone_total = 0.0
+    standalone_count = 0
 
     for expense in expenses:
         if expense.trip_id is None:
+            standalone_total += expense.amount or 0
+            standalone_count += 1
             continue
         totals_by_trip[expense.trip_id] += expense.amount or 0
         counts_by_trip[expense.trip_id] += 1
@@ -1173,7 +1250,18 @@ def expenses():
             "count": counts_by_trip[trip.id],
         }
         for trip in trips
+        if counts_by_trip[trip.id] > 0
     ]
+    if standalone_count:
+        trip_summaries.insert(
+            0,
+            {
+                "trip": None,
+                "label": "One-off splits",
+                "total": round(standalone_total, 2),
+                "count": standalone_count,
+            },
+        )
 
     total_expenses = round(sum(expense.amount or 0 for expense in expenses), 2)
 

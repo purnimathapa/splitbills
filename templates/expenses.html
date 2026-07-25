@@ -12,8 +12,8 @@
             <div>
                 <p class="tag">Overview</p>
                 <h1>All expenses</h1>
-                <p class="text-caption">Total spent across all groups: <strong>{{ currency }} {{ (total_expenses * conversion_rate)|round(2) }}</strong></p>
-                <p class="text-caption text-caption--spaced">Open a <a href="{{ url_for('dashboard_groups') }}">group</a> to add expenses, scan receipts, copy payment links, and see your balance.</p>
+                <p class="text-caption">Total across groups and one-off splits: <strong>{{ currency }} {{ (total_expenses * conversion_rate)|round(2) }}</strong></p>
+                <p class="text-caption text-caption--spaced"><a href="{{ url_for('new_split') }}">Start a split</a> or open a <a href="{{ url_for('dashboard_groups') }}">group</a> to add bills.</p>
             </div>
             <a href="{{ url_for('create_group') }}" class="btn-primary hide-mobile-fab-target">+ New group</a>
         </header>
@@ -22,7 +22,7 @@
         <section class="page-section">
             <div class="page-section__head">
                 <h2>Spending by group</h2>
-                <span class="badge badge-neutral">{{ trip_summaries|length }} group{% if trip_summaries|length != 1 %}s{% endif %}</span>
+                <span class="badge badge-neutral">{{ trip_summaries|length }} bucket{% if trip_summaries|length != 1 %}s{% endif %}</span>
             </div>
             <div class="card">
                 {% set max_total = namespace(val=0) %}
@@ -39,8 +39,13 @@
                             <div class="tpc-left">
                                 <div class="tpc-dot"></div>
                                 <div>
+                                    {% if item.trip %}
                                     <a class="link-strong" href="{{ url_for('group_details', trip_id=item.trip.id) }}">{{ item.trip.trip_name }}</a>
                                     <p class="text-caption">{{ item.count }} expense{% if item.count != 1 %}s{% endif %} · {{ item.trip.invite_code }}</p>
+                                    {% else %}
+                                    <span class="link-strong">{{ item.label }}</span>
+                                    <p class="text-caption">{{ item.count }} split{% if item.count != 1 %}s{% endif %} · no group</p>
+                                    {% endif %}
                                 </div>
                             </div>
                             <div>
@@ -84,8 +89,8 @@
                             <div>
                                 <strong>{{ expense.payer.name }}</strong>
                                 <p class="text-caption">
-                                    <a href="{{ url_for('expense_detail', trip_id=expense.trip_id, expense_id=expense.id) }}">{{ expense.description }}</a>
-                                    · {{ trip_names.get(expense.trip_id, 'Group') }}
+                                    <a href="{{ expense_url(expense) }}">{{ expense.description }}</a>
+                                    · {% if expense.trip_id %}{{ trip_names.get(expense.trip_id, 'Group') }}{% else %}One-off{% endif %}
                                     {% if expense.receipt_image_url %} · Receipt{% endif %}
                                     {% if expense.created_at %} · {{ expense.created_at.strftime('%I:%M %p') }}{% endif %}
                                 </p>

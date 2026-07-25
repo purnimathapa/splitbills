@@ -47,7 +47,7 @@
                                 <p class="text-caption">
                                     {% set pt = per_trip.get(e.trip_id) %}
                                     {% if e.created_at %}{{ e.created_at.strftime('%d %b %Y') }}{% endif %}
-                                    {% if pt %} · {{ pt.trip_name }}{% endif %}
+                                    {% if pt %} · {{ pt.trip_name }}{% elif not e.trip_id %} · One-off{% endif %}
                                 </p>
                             </div>
                         </div>

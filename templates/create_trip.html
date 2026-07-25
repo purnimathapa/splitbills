@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="app-layout">
+    {% include "partials/app_nav.html" %}
+    <main class="app-main">
+
+        <header class="page-head">
+            <div>
+                <h1>Create or join a group</h1>
+                <p class="text-caption">Roommates, dinners, trips — one place to split and collect.</p>
+            </div>
+        </header>
+
+        <div class="hero-grid">
+            <div class="card">
+                <h2>Create group</h2>
+                <form method="POST" class="form-stack">
+                    <input class="input-field" type="text" name="trip_name" placeholder="Group name" required>
+                    <button type="submit" class="btn-primary">Create</button>
+                </form>
+            </div>
+            <div class="card">
+                <h2>Join with code</h2>
+                <form method="POST" action="{{ url_for('join_group') }}" class="form-stack">
+                    <input class="input-field" type="text" name="invite_code" placeholder="Invite code" required>
+                    <button type="submit" class="btn-primary">Join</button>
+                </form>
+            </div>
+        </div>
+
+        {% if trip_summaries %}
+        <section class="page-section">
+            <h2>Your groups</h2>
+            <div class="card card--flush">
+                {% for item in trip_summaries %}
+                <a class="list-row" href="{{ url_for('group_details', trip_id=item.trip.id) }}">
+                    <div>
+                        <strong>{{ item.trip.trip_name }}</strong>
+                        <p class="text-caption">Code {{ item.trip.invite_code }} · {{ item.count }} expenses</p>
+                    </div>
+                    <strong>{{ currency }} {{ (item.total * conversion_rate)|round(2) }}</strong>
+                </a>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+    </main>
+</div>
+
+{% endblock %}

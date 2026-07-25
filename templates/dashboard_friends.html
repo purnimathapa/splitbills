@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "macros/ui.html" import user_avatar %}
+{% from "macros/balance.html" import member_balance_badge %}
+
+{% block content %}
+
+<div class="app-layout">
+    {% include "partials/app_nav.html" %}
+    <main class="app-main">
+
+        <header class="page-head">
+            <div>
+                <h1>Friends</h1>
+                <p class="text-caption">People you share groups with — balances across trips.</p>
+            </div>
+        </header>
+
+        <div class="card card--flush">
+            {% if friend_data %}
+                {% for item in friend_data %}
+                <div class="list-row">
+                    <div class="expense-row__main">
+                        {{ user_avatar(item.friend, 'md') }}
+                        <div>
+                            <strong>{{ item.friend.name }}</strong>
+                            <p class="text-caption">{{ item.friend.email }} · {{ item.shared_trip_count }} shared group{% if item.shared_trip_count != 1 %}s{% endif %}</p>
+                            <p class="text-caption">Paid {{ currency }} {{ (item.total_spent * conversion_rate)|round(2) }}</p>
+                        </div>
+                    </div>
+                    <div class="stack-sm stack-sm--align-end">
+                        {{ member_balance_badge(item.net_balance, conversion_rate) }}
+                        <a class="btn-secondary btn-sm" href="{{ url_for('friend_detail', user_id=item.friend.id) }}">View</a>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <h3>No friends yet</h3>
+                    <p class="text-caption">Join or create groups to see people here.</p>
+                    <a href="{{ url_for('create_group') }}" class="btn-primary btn-sm">Create group</a>
+                </div>
+            {% endif %}
+        </div>
+
+    </main>
+</div>
+
+{% endblock %}

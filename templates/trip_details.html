@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% from "macros/ui.html" import user_avatar %}
+{% from "macros/balance.html" import balance_card, member_balance_badge %}
+{% from "macros/activity_feed.html" import activity_feed %}
+{% from "macros/empty_state.html" import empty_state %}
+
+{% block content %}
+
+<div class="app-layout">
+    {% include "partials/app_nav.html" %}
+
+    <main class="app-main {% if trip.is_active %}app-main--with-fab{% endif %}">
+
+        {% set my_net = member_settlement.get(current_user.id, 0) %}
+
+        <header class="page-head">
+            <div>
+                <div class="page-head__title-row">
+                    <h1>{{ trip.trip_name }}</h1>
+                    {% if trip.is_active %}
+                    <span class="badge badge-success">Active</span>
+                    {% else %}
+                    <span class="badge badge-neutral">Closed</span>
+                    {% endif %}
+                </div>
+                <p class="text-caption">Group invite · <strong>{{ trip.invite_code }}</strong></p>
+            </div>
+            <div class="page-head__actions">
+                <a href="{{ url_for('dashboard_groups') }}" class="btn-secondary">Groups</a>
+                {% if trip.is_active %}
+                <button type="button" class="btn-primary hide-mobile-fab-target" data-open-sheet="add-expense-sheet">+ Add expense</button>
+                <a href="{{ url_for('collect') }}" class="btn-secondary">Collect</a>
+                {% endif %}
+            </div>
+        </header>
+
+        {{ balance_card(my_net, "In this group", conversion_rate) }}
+
+        <div class="card page-section">
+            {% if trip.is_active %}
+            <div class="page-head">
+                <p class="text-caption">Mark closed when everyone has settled up.</p>
+                <button type="button" id="toggleInactiveBtn" class="btn-secondary btn-sm">Mark closed</button>
+            </div>
+            <form id="inactiveForm" method="POST" action="{{ url_for('toggle_group_active', trip_id=trip.id) }}" hidden class="form-stack">
+                <label class="form-label">Note (optional)</label>
+                <textarea name="description" rows="3" class="input-field"></textarea>
+                <div class="page-head__actions">
+                    <button type="submit" class="btn-primary btn-sm">Confirm</button>
+                    <button type="button" id="cancelInactiveBtn" class="btn-secondary btn-sm">Cancel</button>
+                </div>
+            </form>
+            {% else %}
+            <div class="page-head">
+                <p class="text-caption">{{ trip.description or 'This group is closed.' }}</p>
+                <form method="POST" action="{{ url_for('toggle_group_active', trip_id=trip.id) }}">
+                    <button type="submit" class="btn-primary btn-sm">Reopen</button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h2>{{ currency }} {{ (total * conversion_rate)|round(2) }}</h2>
+                <p>Group total</p>
+            </div>
+            <div class="stat-card stat-card--accent">
+                <h2>{{ currency }} {{ (member_spending.get(current_user.id, 0) * conversion_rate)|round(2) }}</h2>
+                <p>You paid</p>
+            </div>
+            <div class="stat-card">
+                <h2>{{ members|length }}</h2>
+                <p>Members</p>
+            </div>
+            <div class="stat-card">
+                <h2>{{ expenses|length }}</h2>
+                <p>Expenses</p>
+            </div>
+        </div>
+
+        <section class="page-section">
+            <div class="page-section__head">
+                <h2>Activity</h2>
+                <a href="{{ url_for('activity_trip', trip_id=trip.id) }}" class="link-muted">Full feed →</a>
+            </div>
+            <div class="card card--flush">
+                {{ activity_feed(activity_items, empty_subtext='No activity in this group yet. Add the first expense to kick things off.') }}
+            </div>
+        </section>
+
+        <section class="page-section">
+            <h2>Settle up</h2>
+            <div class="card">
+                {% if settlements %}
+                    {% for s in settlements %}
+                    {% set ns = namespace(payer=none) %}
+                    {% for m in members %}{% if m.name == s.from %}{% set ns.payer = m %}{% endif %}{% endfor %}
+                    <div class="settlement-row {% if s.from == current_user.name %}settlement-row--owe{% elif s.to == current_user.name %}settlement-row--get{% endif %}">
+                        <div class="expense-row__main">
+                            {% if ns.payer %}{{ user_avatar(ns.payer, 'sm') }}{% endif %}
+                            <span><strong>{{ s.from }}</strong>{% if s.from == current_user.name %} (you){% endif %} → <strong>{{ s.to }}</strong>{% if s.to == current_user.name %} (you){% endif %}</span>
+                        </div>
+                        <strong>{{ currency }} {{ (s.amount * conversion_rate)|round(2) }}</strong>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    {{ empty_state('🎉', "You're all settled up!", 'Nobody owes anything in this group right now. Nice work.', url_for('settlement', trip_id=trip.id), 'View settlement') }}
+                {% endif %}
+                <p class="text-caption"><a href="{{ url_for('settlement', trip_id=trip.id) }}" class="link-muted">Full settlement view →</a></p>
+            </div>
+        </section>
+
+        <section class="page-section">
+            <h2>Members</h2>
+            <div class="members-grid">
+                {% for member in members %}
+                {% set net = member_settlement.get(member.id, 0) %}
+                <div class="member-card {% if member.id == current_user.id %}member-card--you{% endif %}">
+                    {{ user_avatar(member, 'lg') }}
+                    <p class="member-card__name">{{ member.name }}{% if member.id == current_user.id %} · you{% endif %}</p>
+                    <p class="text-caption">Paid {{ currency }} {{ (member_spending.get(member.id, 0) * conversion_rate)|round(2) }}</p>
+                    {{ member_balance_badge(net, conversion_rate) }}
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="page-section">
+            <h2>Recent expenses</h2>
+            <div class="card">
+                {% if expenses %}
+                    {% for expense in expenses %}
+                    <div class="expense-row">
+                        <div class="expense-row__main">
+                            {{ user_avatar(expense.payer, 'md') }}
+                            <div>
+                                <strong>{{ expense.payer.name }}</strong>
+                                <p class="text-caption">
+                                    <a href="{{ url_for('expense_detail', trip_id=trip.id, expense_id=expense.id) }}">{{ expense.description }}</a>
+                                    <span class="badge badge-neutral">{{ expense.split_type or 'equal' }}</span>
+                                    {% if expense.receipt_image_url %} 🧾{% endif %}
+                                </p>
+                                {% set pay_links = expense_pay_links.get(expense.id, []) %}
+                                {% if pay_links %}
+                                <div class="expense-row__meta">
+                                    {% for pl in pay_links %}
+                                    <button type="button" class="btn-secondary btn-sm copy-pay-link" data-url="{{ pl.url }}">Copy link · {{ pl.guest_name }}</button>
+                                    <span class="badge {% if pl.status == 'paid' %}badge-success{% else %}badge-neutral{% endif %}">{{ pl.status|replace('_', ' ') }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <strong>{{ currency }} {{ (expense.amount * conversion_rate)|round(2) }}</strong>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    {{ empty_state('🧾', 'Ready for the first bill?', 'Add an expense when you pay — everyone’s share and payment links are created automatically.') }}
+                    {% if trip.is_active %}
+                    <div class="empty-state empty-state--action">
+                        <button type="button" class="btn-primary btn-sm" data-open-sheet="add-expense-sheet">Add expense</button>
+                    </div>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="page-section">
+            <h2>Spending by member</h2>
+            <div class="card">
+                <div class="chart-wrap"><canvas id="expenseChart"></canvas></div>
+            </div>
+        </section>
+
+    </main>
+</div>
+
+{% if trip.is_active %}
+{% include "partials/expense_modal.html" %}
+{% endif %}
+
+<script>
+{% if trip.is_active %}
+document.getElementById('toggleInactiveBtn')?.addEventListener('click', function () {
+    document.getElementById('inactiveForm').hidden = false;
+    this.hidden = true;
+});
+document.getElementById('cancelInactiveBtn')?.addEventListener('click', function () {
+    document.getElementById('inactiveForm').hidden = true;
+    document.getElementById('toggleInactiveBtn').hidden = false;
+});
+{% endif %}
+{% if open_new_expense and trip.is_active %}
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelector('[data-open-sheet="add-expense-sheet"]')?.click();
+});
+{% endif %}
+const chartText = getComputedStyle(document.documentElement).getPropertyValue('--color-text').trim() || '#0f172a';
+const ctx = document.getElementById('expenseChart');
+if (ctx) {
+    new Chart(ctx, {
+        type: 'doughnut',
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '62%',
+            plugins: { legend: { position: 'bottom', labels: { color: chartText, boxWidth: 12, padding: 16 } } }
+        },
+        data: {
+            labels: [{% for name in chart_labels %}"{{ name }}",{% endfor %}],
+            datasets: [{
+                data: [{% for amount in chart_values %}{{ amount }},{% endfor %}],
+                backgroundColor: ['#2563eb','#0891b2','#059669','#7c3aed','#db2777','#ea580c','#4f46e5','#0d9488'],
+                borderWidth: 2,
+                borderColor: 'var(--color-surface)'
+            }]
+        }
+    });
+}
+</script>
+
+{% endblock %}

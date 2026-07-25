@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="app-layout">
+    {% include "partials/app_nav.html" %}
+    <main class="app-main">
+
+        <header class="page-head">
+            <div>
+                <h1>Receipts</h1>
+                <p class="text-caption">Upload when adding an expense, then scan for line items.</p>
+            </div>
+            {% if first_active %}
+            <a href="{{ url_for('new_split', group_id=first_active.id) }}" class="btn-primary btn-sm">+ Add with receipt</a>
+            {% else %}
+            <a href="{{ url_for('create_group') }}" class="btn-primary btn-sm">Create group</a>
+            {% endif %}
+        </header>
+
+        <div class="card card--flush">
+            {% if receipt_expenses %}
+                {% for exp in receipt_expenses %}
+                <a class="list-row" href="{{ url_for('expense_detail', trip_id=exp.trip_id, expense_id=exp.id) }}">
+                    <div>
+                        <strong>{{ exp.description }}</strong>
+                        <p class="text-caption">{{ trips_by_id[exp.trip_id].trip_name if exp.trip_id in trips_by_id else 'Group' }}</p>
+                    </div>
+                    <img src="{{ url_for('static', filename=exp.receipt_image_url) }}" alt="" width="56" height="56" class="receipt-thumb">
+                </a>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <h3>No receipts yet</h3>
+                    <p class="text-caption">Attach a photo when adding an expense, then tap Scan receipt.</p>
+                </div>
+            {% endif %}
+        </div>
+
+    </main>
+</div>
+
+{% endblock %}

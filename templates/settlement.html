@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "macros/settle_suggestion.html" import settle_suggestion_list %}
+{% from "macros/empty_state.html" import empty_state %}
+
+{% block content %}
+
+<div class="app-layout">
+    {% include "partials/app_nav.html" %}
+    <main class="app-main">
+
+        <header class="page-head">
+            <div>
+                <h1>Settlement</h1>
+                <p class="text-caption">{{ trip.trip_name }}</p>
+            </div>
+            <a href="{{ url_for('group_details', trip_id=trip.id) }}" class="btn-secondary">← Group</a>
+        </header>
+
+        {{ settle_suggestion_list(settle_suggestions) }}
+
+        <div class="card card--flush">
+            {% if settlements %}
+                {% for settlement in settlements %}
+                <div class="list-row">
+                    <span><strong>{{ settlement.from }}</strong> pays <strong>{{ settlement.to }}</strong></span>
+                    <strong>{{ currency }} {{ (settlement.amount * conversion_rate)|round(2) }}</strong>
+                </div>
+                {% endfor %}
+            {% else %}
+                {{ empty_state('🎉', "You're all settled up!", 'No payments are needed in this group. Treat yourselves to something nice.') }}
+            {% endif %}
+        </div>
+
+    </main>
+</div>
+
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="auth-page">
+    <div class="card auth-card">
+        <a href="/" class="auth-card__brand">
+            <span class="app-nav__mark">SB</span>
+            <span>SplitBills</span>
+        </a>
+        <h1>Create account</h1>
+        <p class="text-caption">Split bills, scan receipts, and collect payments.</p>
+        <form method="POST" class="form-stack">
+            <input class="input-field" type="text" name="name" placeholder="Full name" required>
+            <input class="input-field" type="email" name="email" placeholder="Email" required>
+            <input class="input-field" type="password" name="password" placeholder="Password" required>
+            <button class="btn-primary btn-block" type="submit">Sign up</button>
+        </form>
+        <p class="auth-switch">Already have an account? <a href="/login">Log in</a></p>
+    </div>
+</div>
+
+{% endblock %}

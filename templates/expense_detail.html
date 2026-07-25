@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% from "macros/ui.html" import user_avatar %}
+
+{% block content %}
+
+<div class="app-layout">
+    {% include "partials/app_nav.html" %}
+    <main class="app-main">
+
+        <header class="page-head">
+            <div>
+                <h1>Expense</h1>
+                <p class="text-caption">{% if trip %}{{ trip.trip_name }}{% else %}One-off split{% endif %}</p>
+            </div>
+            {% if trip %}
+            <a href="{{ url_for('group_details', trip_id=trip.id) }}" class="btn-secondary">← Group</a>
+            {% else %}
+            <a href="{{ url_for('dashboard') }}" class="btn-secondary">← Home</a>
+            {% endif %}
+        </header>
+
+        <div class="card">
+            <div class="expense-row__main">
+                {{ user_avatar(expense.payer, 'lg') }}
+                <div>
+                    <h2>{{ expense.description }} <span class="badge badge-neutral">{{ expense.split_type or 'equal' }}</span>
+                        {% if expense.self_service_items %}
+                        <span class="badge badge-neutral">Self-service items</span>
+                        {% endif %}
+                        {% if expense.is_recurring %}
+                        <span class="badge badge-success">Repeats {{ expense.recurrence_interval }}</span>
+                        {% endif %}
+                    </h2>
+                    <p class="text-caption">
+                        Paid by <strong>{{ expense.payer.name }}</strong>
+                        · {{ currency }} {{ (expense.amount * conversion_rate)|round(2) }}
+                        {% if expense.created_at %}· {{ expense.created_at.strftime('%d %b %Y') }}{% endif %}
+                        {% if expense.is_recurring and expense.next_occurrence_date %}
+                        · Next auto entry {{ expense.next_occurrence_date.strftime('%d %b %Y') }}
+                        {% endif %}
+                    </p>
+                    {% if expense.remarks %}<p class="text-caption">{{ expense.remarks }}</p>{% endif %}
+                    {% if expense.tax_tip_amount and expense.tax_tip_amount > 0 %}
+                    <p class="text-caption">Tax &amp; tip: {{ currency }} {{ (expense.tax_tip_amount * conversion_rate)|round(2) }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if line_items %}
+            <section class="card-section">
+                <h3>Line items</h3>
+                {% for item in line_items %}
+                <div class="settlement-row{% if item.unclaimed %} claim-row--warn{% endif %}">
+                    <span class="text-caption">
+                        {{ item.name }}
+                        {% if item.unclaimed %}
+                        <span class="badge badge-warn">Unclaimed</span>
+                        {% elif item.assignees %}
+                        · {{ item.assignees|join(', ') }}
+                        {% endif %}
+                    </span>
+                    <strong>{{ currency }} {{ (item.total * conversion_rate)|round(2) }}</strong>
+                </div>
+                {% endfor %}
+            </section>
+            {% endif %}
+
+            {% if claim_status and not claim_status.finalized %}
+            <section class="card-section claim-status-section">
+                <h3>Item claims</h3>
+                <p class="text-caption">Share each person's claim link so they can tap what they had.</p>
+                {% if claim_status.unclaimed_items %}
+                <p class="text-caption text-warn"><strong>{{ claim_status.unclaimed_items|length }}</strong> line item(s) not claimed by anyone yet.</p>
+                {% endif %}
+                <ul class="claim-status-list">
+                    {% for cl in claim_links %}
+                    <li class="list-row">
+                        <div>
+                            <strong>{{ cl.guest_name }}</strong>
+                            <span class="badge {% if cl.claimed %}badge-success{% else %}badge-neutral{% endif %}">
+                                {% if cl.claimed %}Claimed{% else %}Pending{% endif %}
+                            </span>
+                        </div>
+                        <button type="button" class="btn-secondary btn-sm copy-pay-link" data-url="{{ cl.url }}">Copy claim link</button>
+                    </li>
+                    {% endfor %}
+                </ul>
+                <form method="POST" action="{{ url_for('finalize_claims_route', trip_id=trip.id, expense_id=expense.id) }}" class="stack-sm">
+                    <p class="text-caption">Finalize when everyone has claimed (or to lock splits with current claims).</p>
+                    <button type="submit" class="btn-primary btn-sm">Finalize &amp; generate payment links</button>
+                </form>
+            </section>
+            {% elif claim_status and claim_status.finalized %}
+            <section class="card-section">
+                <p class="text-caption text-success">Item claims finalized {{ expense.claims_finalized_at.strftime('%d %b %Y') if expense.claims_finalized_at else '' }}.</p>
+            </section>
+            {% endif %}
+
+            {% if split_rows %}
+            <section class="card-section">
+                <h3>Who owes what</h3>
+                {% for row in split_rows %}
+                <div class="settlement-row">
+                    <div class="expense-row__main">
+                        {{ user_avatar(row.user, 'sm') }}
+                        <span>{{ row.user.name }}</span>
+                    </div>
+                    <strong>{{ currency }} {{ (row.amount_owed * conversion_rate)|round(2) }}</strong>
+                </div>
+                {% endfor %}
+            </section>
+            {% endif %}
+
+            {% if pay_links and (not expense.self_service_items or expense.claims_finalized_at) %}
+            <section class="card-section">
+                <h3>Payment links</h3>
+                <p class="text-caption">Share so guests can pay via Khalti, card, or mark paid.</p>
+                {% for pl in pay_links %}
+                <div class="list-row">
+                    <div>
+                        <strong>{{ pl.guest_name }}</strong>
+                        <span class="badge {% if pl.status == 'paid' %}badge-success{% else %}badge-neutral{% endif %}">{{ pl.status|replace('_', ' ') }}</span>
+                    </div>
+                    <div class="stack-sm stack-sm--align-end">
+                        <strong>{{ currency }} {{ (pl.amount * conversion_rate)|round(2) }}</strong>
+                        <button type="button" class="btn-secondary btn-sm copy-pay-link" data-url="{{ pl.url }}">Copy link</button>
+                    </div>
+                </div>
+                {% endfor %}
+            </section>
+            {% endif %}
+
+            {% if expense.receipt_image_url %}
+            <section class="card-section">
+                <h3>Receipt</h3>
+                <a href="{{ url_for('static', filename=expense.receipt_image_url) }}" target="_blank" rel="noopener">
+                    <img class="receipt-full" src="{{ url_for('static', filename=expense.receipt_image_url) }}" alt="Receipt">
+                </a>
+            </section>
+            {% endif %}
+        </div>
+
+    </main>
+</div>
+
+{% endblock %}

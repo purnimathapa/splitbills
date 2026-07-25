@@ -1,0 +1,22 @@
+<nav class="tab-bar" aria-label="Main">
+    <a href="{{ url_for('dashboard') }}" class="tab-bar__item {% if request.endpoint == 'dashboard' %}is-active{% endif %}">
+        <span class="tab-bar__icon" aria-hidden="true">⌂</span>
+        <span class="tab-bar__label">Home</span>
+    </a>
+    <a href="{{ url_for('activity_global') }}" class="tab-bar__item {% if request.endpoint in ['activity_global', 'activity_trip'] %}is-active{% endif %}">
+        <span class="tab-bar__icon" aria-hidden="true">◎</span>
+        <span class="tab-bar__label">Activity</span>
+    </a>
+    <a href="{{ url_for('new_split') }}" class="tab-bar__item tab-bar__item--accent {% if request.endpoint in ['new_split', 'add_expense'] %}is-active{% endif %}">
+        <span class="tab-bar__icon" aria-hidden="true">+</span>
+        <span class="tab-bar__label">Split</span>
+    </a>
+    <a href="{{ url_for('dashboard_groups') }}" class="tab-bar__item {% if request.endpoint in ['dashboard_groups', 'group_details', 'create_group', 'settlement', 'expense_detail', 'expense_detail_standalone'] %}is-active{% endif %}">
+        <span class="tab-bar__icon" aria-hidden="true">◫</span>
+        <span class="tab-bar__label">Groups</span>
+    </a>
+    <a href="{{ url_for('profile') }}" class="tab-bar__item {% if request.endpoint == 'profile' %}is-active{% endif %}">
+        <span class="tab-bar__icon" aria-hidden="true">◉</span>
+        <span class="tab-bar__label">Profile</span>
+    </a>
+</nav>

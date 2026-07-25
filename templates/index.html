@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="landing">
+    <nav class="landing-nav">
+        <a href="/" class="app-nav__brand">
+            <span class="app-nav__mark">SB</span>
+            <span>SplitBills</span>
+        </a>
+        <div class="public-nav__actions">
+            <a href="/login" class="btn-secondary btn-sm">Log in</a>
+            <a href="/register" class="btn-primary btn-sm">Get started</a>
+        </div>
+    </nav>
+
+    <section class="landing-hero" id="features">
+        <div>
+            <p class="tag">Receipts · splits · guest pay</p>
+            <h1>Split expenses. Collect payments. Track every shared cost.</h1>
+            <p class="text-caption">Scan receipts, split by item or custom amounts, and send secure Khalti or card links — built for groups in Nepal and beyond.</p>
+            <div class="page-head__actions">
+                <a href="/register" class="btn-primary">Create free account</a>
+                <a href="#how" class="btn-secondary">How it works</a>
+            </div>
+        </div>
+        <div class="card">
+            <p class="text-upper">You're owed</p>
+            <p class="balance-card__amount text-success">{{ currency|default('Rs') }} 2,450</p>
+            <p class="text-caption">Example dashboard · 3 payments pending</p>
+        </div>
+    </section>
+
+    <section class="landing-features">
+        <h2>Everything in one place</h2>
+        <p class="text-caption">Same tools you get after sign up.</p>
+        <div class="feature-grid">
+            <div class="card"><h3>Receipt OCR</h3><p class="text-caption">Photo → line items → assign to people.</p></div>
+            <div class="card"><h3>Flexible splits</h3><p class="text-caption">Equal, exact, %, shares, or itemized.</p></div>
+            <div class="card"><h3>Guest checkout</h3><p class="text-caption">Pay links — no app download.</p></div>
+            <div class="card"><h3>Wallet &amp; collect</h3><p class="text-caption">Track who paid and what's outstanding.</p></div>
+        </div>
+    </section>
+
+    <section class="landing-features" id="how">
+        <h2>How it works</h2>
+        <div class="card form-stack">
+            <p><strong>1.</strong> Create a group and add an expense (scan a receipt or enter manually).</p>
+            <p><strong>2.</strong> Split fairly — by item, evenly, or custom amounts.</p>
+            <p><strong>3.</strong> Share payment links; guests pay via Khalti, card, or mark cash paid.</p>
+        </div>
+        <p class="text-caption"><a href="/register" class="btn-primary">Start splitting</a></p>
+    </section>
+</div>
+
+{% endblock %}

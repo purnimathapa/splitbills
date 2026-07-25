@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% from "macros/ui.html" import user_avatar %}
+
+{% block content %}
+
+<div class="app-layout">
+    {% include "partials/app_nav.html" %}
+    <main class="app-main">
+
+        <header class="page-head">
+            <div>
+                <h1>Profile</h1>
+                <p class="text-caption">Your account</p>
+            </div>
+        </header>
+
+        <div class="card wallet-hero wallet-hero--neutral wallet-hero--row page-section">
+            {{ user_avatar(current_user, 'lg') }}
+            <div>
+                <p class="wallet-hero__label">Signed in as</p>
+                <p class="wallet-hero__title">{{ current_user.name }}</p>
+                <p class="text-caption">{{ current_user.email }}</p>
+            </div>
+        </div>
+
+        <div class="card card--flush">
+            <a class="list-row" href="{{ url_for('dashboard_friends') }}">Friends &amp; balances</a>
+            <a class="list-row" href="{{ url_for('collect') }}">Collect payments</a>
+            <a class="list-row" href="{{ url_for('wallet') }}">Wallet</a>
+            <a class="list-row" href="{{ url_for('receipts') }}">Receipts</a>
+        </div>
+
+        <a href="{{ url_for('logout') }}" class="btn-secondary btn-block">Log out</a>
+
+    </main>
+</div>
+
+{% endblock %}

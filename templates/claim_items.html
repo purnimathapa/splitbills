@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% from "macros/ui.html" import initials_avatar %}
+
+{% block body_attrs %}{% if saved and not invalid %} data-toast-success="Your items are saved."{% endif %}{% endblock %}
+
+{% block content %}
+
+<div class="pay-page claim-page">
+    <div class="card pay-card claim-card">
+
+        {% if invalid %}
+            <h1>Invalid link</h1>
+            <p class="text-caption">This claim link is invalid or has expired.</p>
+            <a href="{{ url_for('home') }}" class="btn-secondary btn-block">Go home</a>
+        {% else %}
+
+            <div class="pay-card__trust">
+                <span class="app-nav__mark">SB</span>
+                <span class="text-caption">SplitBills · tap what you had</span>
+            </div>
+
+            {% if finalized %}
+            <div class="empty-state">
+                <h2>All set</h2>
+                <p class="text-caption">This bill was finalized. Your share is locked.</p>
+                {% if link.amount_owed and link.amount_owed > 0 %}
+                <p class="pay-amount">{{ currency }} {{ (link.amount_owed * conversion_rate)|round(2) }}</p>
+                <a href="{{ url_for('guest_pay', token=token) }}" class="btn-primary btn-block">Pay your share</a>
+                {% else %}
+                <p class="text-caption">You don't owe anything on this expense.</p>
+                {% endif %}
+            </div>
+            {% else %}
+
+            <p class="tag">No account needed</p>
+            <h1>Claim your items</h1>
+            <p class="text-caption">{{ expense.description }}{% if trip %} · {{ trip.trip_name }}{% endif %}</p>
+
+            {% if payer %}
+            <div class="pay-requester">
+                {{ initials_avatar(payer.name, 'md') }}
+                <div>
+                    <p class="text-caption">Paid by</p>
+                    <strong>{{ payer.name }}</strong>
+                </div>
+            </div>
+            {% endif %}
+
+            <p class="text-caption">Hi {{ guest.name }}, check everything you ordered{% if confirmed %} — you can change this until the bill is finalized{% endif %}.</p>
+
+            <form method="POST" action="{{ url_for('guest_claim', token=token) }}" id="claim-form" class="claim-form">
+                <ul class="claim-item-list">
+                    {% for item in items %}
+                    <li class="claim-item-row">
+                        <label class="claim-item-label">
+                            <input type="checkbox" name="item_ids" value="{{ item.id }}" class="claim-item-cb"
+                                {% if item.id in user_claimed_ids %}checked{% endif %}>
+                            <span class="claim-item-body">
+                                <span class="claim-item-name">{{ item.name }}{% if item.quantity > 1 %} × {{ item.quantity|int if item.quantity == item.quantity|int else item.quantity }}{% endif %}</span>
+                                {% if item.shared_with %}
+                                <span class="text-small">Also claimed by {{ item.shared_with|join(', ') }}</span>
+                                {% endif %}
+                            </span>
+                            <span class="claim-item-price">{{ currency }} {{ (item.line_total * conversion_rate)|round(2) }}</span>
+                        </label>
+                    </li>
+                    {% endfor %}
+                </ul>
+
+                <div class="claim-total-bar" aria-live="polite">
+                    <span>Your total</span>
+                    <strong id="claim-live-total">{{ currency }} …</strong>
+                </div>
+
+                <button type="submit" class="btn-primary btn-block">Confirm my items</button>
+            </form>
+
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+{% if not invalid and not finalized %}
+<script>
+window.__CLAIM_PREVIEW__ = {{ preview_url|tojson }};
+window.__CLAIM_CURRENCY__ = {{ currency|tojson }};
+window.__CLAIM_RATE__ = {{ conversion_rate|tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/claim-items.js') }}"></script>
+{% endif %}
+
+{% endblock %}

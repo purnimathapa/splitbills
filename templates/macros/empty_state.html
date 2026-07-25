@@ -1,0 +1,13 @@
+{# Reusable friendly empty state — icon (emoji), title, subtext, optional action link #}
+{% macro empty_state(icon='✨', title='Nothing here yet', subtext='', action_url=None, action_label=None, class='') %}
+<div class="empty-state empty-state--rich {{ class }}">
+    <span class="empty-state__icon" aria-hidden="true">{{ icon }}</span>
+    <h3 class="empty-state__title">{{ title }}</h3>
+    {% if subtext %}
+    <p class="empty-state__sub text-caption">{{ subtext }}</p>
+    {% endif %}
+    {% if action_url and action_label %}
+    <a href="{{ action_url }}" class="btn-primary btn-sm">{{ action_label }}</a>
+    {% endif %}
+</div>
+{% endmacro %}

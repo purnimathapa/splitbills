@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% from "macros/ui.html" import user_avatar %}
+
+{% block content %}
+
+<div class="app-layout">
+    {% include "partials/app_nav.html" %}
+    <main class="app-main">
+
+        <header class="page-head">
+            <div>
+                <p class="tag">Overview</p>
+                <h1>All expenses</h1>
+                <p class="text-caption">Total spent across all groups: <strong>{{ currency }} {{ (total_expenses * conversion_rate)|round(2) }}</strong></p>
+                <p class="text-caption text-caption--spaced">Open a <a href="{{ url_for('dashboard_groups') }}">group</a> to add expenses, scan receipts, copy payment links, and see your balance.</p>
+            </div>
+            <a href="{{ url_for('create_group') }}" class="btn-primary hide-mobile-fab-target">+ New group</a>
+        </header>
+
+        {% if trip_summaries %}
+        <section class="page-section">
+            <div class="page-section__head">
+                <h2>Spending by group</h2>
+                <span class="badge badge-neutral">{{ trip_summaries|length }} group{% if trip_summaries|length != 1 %}s{% endif %}</span>
+            </div>
+            <div class="card">
+                {% set max_total = namespace(val=0) %}
+                {% for item in trip_summaries %}
+                    {% if item.total > max_total.val %}{% set max_total.val = item.total %}{% endif %}
+                {% endfor %}
+
+                <div class="trip-progress-list">
+                    {% for item in trip_summaries %}
+                    {% set hue = 'hue-' ~ (loop.index0 % 8) %}
+                    {% set pct = ((item.total / max_total.val) * 100) | round(1) if max_total.val > 0 else 0 %}
+                    <div class="trip-progress-card {{ hue }}" style="--pct: {{ pct }}%;">
+                        <div class="tpc-top">
+                            <div class="tpc-left">
+                                <div class="tpc-dot"></div>
+                                <div>
+                                    <a class="link-strong" href="{{ url_for('group_details', trip_id=item.trip.id) }}">{{ item.trip.trip_name }}</a>
+                                    <p class="text-caption">{{ item.count }} expense{% if item.count != 1 %}s{% endif %} · {{ item.trip.invite_code }}</p>
+                                </div>
+                            </div>
+                            <div>
+                                <span class="tpc-amount">{{ currency }} {{ (item.total * conversion_rate)|round(2) }}</span>
+                                <span class="text-caption"> · {{ pct }}%</span>
+                            </div>
+                        </div>
+                        <div class="tpc-bar-track">
+                            <div class="tpc-bar-fill"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+        {% endif %}
+
+        <section class="page-section">
+            <h2>Transactions</h2>
+            <div class="card card--flush">
+                {% if expenses_by_date %}
+                    {% for date_key, day_expenses in expenses_by_date.items() %}
+                    <div class="date-group-header">
+                        <div class="date-group-pill">
+                            {% if date_key == 'Unknown' %}
+                                Unknown date
+                            {% else %}
+                                {% set parts = date_key.split('-') %}
+                                {% set months = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] %}
+                                {{ months[parts[1]|int] }} {{ parts[2] }}, {{ parts[0] }}
+                            {% endif %}
+                        </div>
+                        <div class="date-group-line"></div>
+                        <span class="date-group-total">{{ currency }} {{ (date_totals[date_key] * conversion_rate)|round(2) }}</span>
+                    </div>
+
+                    {% for expense in day_expenses %}
+                    <div class="list-row expense-row">
+                        <div class="expense-row__main">
+                            {{ user_avatar(expense.payer, 'sm') }}
+                            <div>
+                                <strong>{{ expense.payer.name }}</strong>
+                                <p class="text-caption">
+                                    <a href="{{ url_for('expense_detail', trip_id=expense.trip_id, expense_id=expense.id) }}">{{ expense.description }}</a>
+                                    · {{ trip_names.get(expense.trip_id, 'Group') }}
+                                    {% if expense.receipt_image_url %} · Receipt{% endif %}
+                                    {% if expense.created_at %} · {{ expense.created_at.strftime('%I:%M %p') }}{% endif %}
+                                </p>
+                            </div>
+                        </div>
+                        <strong>{{ currency }} {{ (expense.amount * conversion_rate)|round(2) }}</strong>
+                    </div>
+                    {% endfor %}
+
+                    <div class="date-group-spacer"></div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <p class="text-caption">Add an expense from any group page.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </section>
+
+    </main>
+</div>
+
+{% endblock %}

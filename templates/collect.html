@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% from "macros/ui.html" import user_avatar %}
+
+{% block content %}
+
+<div class="app-layout">
+    {% include "partials/app_nav.html" %}
+    <main class="app-main">
+
+        <header class="page-head">
+            <div>
+                <p class="tag">Guest checkout</p>
+                <h1>Collect payments</h1>
+                <p class="text-caption">Share secure links — Khalti, card, or manual confirmation.</p>
+            </div>
+        </header>
+
+        <div class="balance-card balance-card--positive page-section">
+            <p class="text-upper">Outstanding to collect</p>
+            <p class="balance-card__amount text-success">{{ currency }} {{ (pending_total * conversion_rate)|round(2) }}</p>
+            <p class="text-caption">{{ pending_count }} link{% if pending_count != 1 %}s{% endif %} waiting</p>
+        </div>
+
+        <div class="card card--flush">
+            {% if pending_links %}
+                {% for row in pending_links %}
+                <div class="list-row{% if highlight_link_id == row.link.id %} list-row--highlight{% endif %}" id="link-{{ row.link.id }}">
+                    <div>
+                        <div class="expense-row__main">
+                            {% if row.guest %}{{ user_avatar(row.guest, 'sm') }}{% endif %}
+                            <div>
+                                <strong>{{ row.guest.name if row.guest else 'Guest' }}</strong>
+                                <p class="text-caption">{{ row.expense.description }} · {{ row.trip.trip_name if row.trip else 'Group' }}</p>
+                                <span class="badge badge-neutral">Pending</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="stack-sm stack-sm--align-end">
+                        <strong>{{ currency }} {{ (row.link.amount_owed * conversion_rate)|round(2) }}</strong>
+                        <button type="button" class="btn-primary btn-sm copy-pay-link" data-url="{{ row.url }}">Copy link</button>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <h3>Nothing to collect yet</h3>
+                    <p class="text-caption">Add an expense where you paid — each member gets a link automatically.</p>
+                    <a href="{{ url_for('dashboard_groups') }}" class="btn-primary btn-sm">Open a group</a>
+                </div>
+            {% endif %}
+        </div>
+
+    </main>
+</div>
+
+{% if highlight_link_id %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var row = document.getElementById('link-{{ highlight_link_id }}');
+    if (row) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+});
+</script>
+{% endif %}
+
+{% endblock %}

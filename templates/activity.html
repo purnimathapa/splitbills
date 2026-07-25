@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% from "macros/activity_feed.html" import activity_feed, activity_pagination %}
+{% from "macros/empty_state.html" import empty_state %}
+
+{% block content %}
+
+<div class="app-layout">
+    {% include "partials/app_nav.html" %}
+    <main class="app-main">
+
+        <header class="page-head">
+            <div>
+                <p class="tag">Updates</p>
+                <h1>{% if scope == 'trip' and trip %}{{ trip.trip_name }} activity{% else %}All activity{% endif %}</h1>
+                <p class="text-caption">Expenses, payments, and members across your groups.</p>
+            </div>
+            <div class="page-head__actions">
+                {% if scope == 'trip' and trip %}
+                <a href="{{ url_for('group_details', trip_id=trip.id) }}" class="btn-secondary">← Group</a>
+                {% else %}
+                <a href="{{ url_for('dashboard') }}" class="btn-secondary">← Home</a>
+                {% endif %}
+            </div>
+        </header>
+
+        <div class="card card--flush" data-feed-shell>
+            <div class="skeleton-feed" aria-hidden="true">
+                {% for i in range(5) %}
+                <div class="skeleton-feed__row"><span class="skeleton skeleton--avatar"></span><span class="skeleton skeleton--line"></span></div>
+                {% endfor %}
+            </div>
+            <div class="feed-shell__content">
+            {{ activity_feed(
+                pagination.items,
+                show_trip=(scope == 'global'),
+                empty_icon='🌱',
+                empty_title='No activity yet',
+                empty_subtext='When your groups have expenses, payments, or new members, updates will appear here.'
+            ) }}
+            </div>
+        </div>
+
+        {% if scope == 'trip' and trip %}
+        {{ activity_pagination(pagination, 'activity_trip', trip_id=trip.id) }}
+        {% else %}
+        {{ activity_pagination(pagination, 'activity_global') }}
+        {% endif %}
+
+    </main>
+</div>
+
+{% endblock %}

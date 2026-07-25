@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="app-layout">
+    {% include "partials/app_nav.html" %}
+    <main class="app-main">
+
+        <header class="page-head">
+            <div>
+                <p class="tag">New split</p>
+                <h1>Who's splitting this?</h1>
+                <p class="text-caption">Pick people first — you can optionally file the bill under a split group later.</p>
+            </div>
+        </header>
+
+        <form method="POST" action="{{ expense_form_action }}" id="expense-form" class="expense-form form-stack" enctype="multipart/form-data">
+
+            <section class="card card-section">
+                <h2 class="text-h3">People on this split</h2>
+                <p class="text-caption">You're paying; select everyone who should share the cost.</p>
+                {% if members|length <= 1 and not friends %}
+                <p class="text-caption">Invite friends to a <a href="{{ url_for('create_group') }}">split group</a> first, or join one with an invite code, so you have people to split with.</p>
+                {% endif %}
+                <ul class="participant-pick-list">
+                    {% for member in members %}
+                    <li>
+                        <label class="form-row-inline">
+                            <input type="checkbox" name="participant_user_ids" value="{{ member.id }}"
+                                {% if member.id in selected_participant_ids %}checked{% endif %}
+                                {% if member.id == current_user.id %}checked disabled{% endif %}>
+                            {{ member.name }}{% if member.id == current_user.id %} (you){% endif %}
+                        </label>
+                    </li>
+                    {% endfor %}
+                </ul>
+                <input type="hidden" name="participant_user_ids" value="{{ current_user.id }}">
+
+                <label class="form-label" for="organize_trip_id">Organize under (optional)</label>
+                <select class="input-field" name="organize_trip_id" id="organize_trip_id">
+                    <option value="">One-off split — no group</option>
+                    {% for g in groups %}
+                    <option value="{{ g.id }}" {% if organize_trip_id == g.id %}selected{% endif %}>{{ g.trip_name }}</option>
+                    {% endfor %}
+                </select>
+                <p class="text-caption">Split groups help with ongoing tabs (rent, trips). One-off dinners can stay ungrouped.</p>
+
+                {% if groups %}
+                <p class="text-caption">Quick fill: <a href="{{ url_for('new_split', group_id=groups[0].id) if groups else '#' }}">use {{ groups[0].trip_name }}</a> members</p>
+                {% endif %}
+            </section>
+
+            <section class="card card-section">
+                <h2 class="text-h3">Bill details</h2>
+                {% include "partials/add_expense_form_fields.html" %}
+            </section>
+
+            <button type="submit" class="btn-primary btn-block">Create split</button>
+        </form>
+
+        {% include "partials/add_expense_scripts.html" %}
+    </main>
+</div>
+
+{% endblock %}

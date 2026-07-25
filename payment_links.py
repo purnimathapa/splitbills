@@ -74,7 +74,7 @@ def build_guest_claim_url(link, secret_key: str) -> str:
         link.expense_id,
         link.user_id,
     )
-    return url_for("guest_claim", token=token, _external=True)
+    return url_for("guest_split", token=token, _external=True)
 
 
 def resolve_payment_link(token: str, secret_key: str, db_session, model_class):

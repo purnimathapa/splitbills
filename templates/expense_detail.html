@@ -68,7 +68,7 @@
             {% if claim_status and not claim_status.finalized %}
             <section class="card-section claim-status-section">
                 <h3>Item claims</h3>
-                <p class="text-caption">Share each person's claim link so they can tap what they had.</p>
+                <p class="text-caption">Share each person's <strong>/split/</strong> link — they tap what they had, then pay.</p>
                 {% if claim_status.unclaimed_items %}
                 <p class="text-caption text-warn"><strong>{{ claim_status.unclaimed_items|length }}</strong> line item(s) not claimed by anyone yet.</p>
                 {% endif %}
@@ -81,11 +81,11 @@
                                 {% if cl.claimed %}Claimed{% else %}Pending{% endif %}
                             </span>
                         </div>
-                        <button type="button" class="btn-secondary btn-sm copy-pay-link" data-url="{{ cl.url }}">Copy claim link</button>
+                        <button type="button" class="btn-secondary btn-sm copy-pay-link" data-url="{{ cl.url }}" data-copy-label="Split link copied">Copy split link</button>
                     </li>
                     {% endfor %}
                 </ul>
-                <form method="POST" action="{{ url_for('finalize_claims_route', trip_id=trip.id, expense_id=expense.id) }}" class="stack-sm">
+                <form method="POST" action="{% if trip %}{{ url_for('finalize_claims_route', trip_id=trip.id, expense_id=expense.id) }}{% else %}{{ url_for('finalize_claims_standalone', expense_id=expense.id) }}{% endif %}" class="stack-sm">
                     <p class="text-caption">Finalize when everyone has claimed (or to lock splits with current claims).</p>
                     <button type="submit" class="btn-primary btn-sm">Finalize &amp; generate payment links</button>
                 </form>
@@ -93,6 +93,22 @@
             {% elif claim_status and claim_status.finalized %}
             <section class="card-section">
                 <p class="text-caption text-success">Item claims finalized {{ expense.claims_finalized_at.strftime('%d %b %Y') if expense.claims_finalized_at else '' }}.</p>
+                {% if claim_status.expected_total > 0 %}
+                <div class="claim-collection-progress">
+                    <div class="claim-collection-progress__labels">
+                        <span class="text-caption">Collected from group</span>
+                        <strong class="tabular-nums">{{ currency }} {{ (claim_status.collected_total * conversion_rate)|round(2) }} / {{ (claim_status.expected_total * conversion_rate)|round(2) }}</strong>
+                    </div>
+                    <div class="claim-collection-progress__track">
+                        <div class="claim-collection-progress__fill" style="width: {{ (100 * claim_status.collected_total / claim_status.expected_total)|round(1) if claim_status.expected_total else 0 }}%;"></div>
+                    </div>
+                    {% if claim_status.pending_total > 0.01 %}
+                    <p class="text-caption">{{ currency }} {{ (claim_status.pending_total * conversion_rate)|round(2) }} still outstanding.</p>
+                    {% else %}
+                    <p class="text-caption text-success">Fully collected.</p>
+                    {% endif %}
+                </div>
+                {% endif %}
             </section>
             {% endif %}
 

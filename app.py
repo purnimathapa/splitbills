@@ -1673,9 +1673,8 @@ def _render_expense_detail(expense: Expense, trip: Trip | None):
     )
 
 
-@app.route("/claim/<path:token>", methods=["GET", "POST"])
-def guest_claim(token):
-    """Public page for a participant to claim line items (no login)."""
+def _guest_split_page(token: str):
+    """Public self-service item pick + pay (same token as guest checkout)."""
     link = get_payment_link_for_token(token)
     if link is None:
         return render_template("claim_items.html", invalid=True), 404
@@ -1684,7 +1683,7 @@ def guest_claim(token):
     if expense is None or not getattr(expense, "self_service_items", False):
         return render_template("claim_items.html", invalid=True), 404
 
-    trip = Trip.query.get(expense.trip_id)
+    trip = Trip.query.get(expense.trip_id) if expense.trip_id else None
     guest = link.user
     payer = User.query.get(expense.paid_by)
     member_ids = get_expense_member_ids(expense)
@@ -1716,25 +1715,59 @@ def guest_claim(token):
 
     confirmed = bool(link.items_claimed_at)
     finalized = bool(getattr(expense, "claims_finalized_at", None))
+    show_pay = (
+        finalized
+        and link.status != PAYMENT_STATUS_PAID
+        and (link.amount_owed or 0) > 0.01
+    )
 
     if request.method == "POST":
-        if finalized:
-            flash("This bill has already been finalized.", "error")
-            return redirect(url_for("guest_claim", token=token))
+        if finalized and link.status == PAYMENT_STATUS_PAID:
+            return redirect(url_for("guest_split", token=token, payment_confirmed="1"))
+        if finalized and not show_pay:
+            return redirect(url_for("guest_split", token=token))
         try:
             raw_ids = request.form.getlist("item_ids")
             selected = [int(x) for x in raw_ids if str(x).isdigit()]
             save_user_claims(expense, link.user_id, selected, member_ids)
             maybe_auto_finalize(expense, member_ids)
             db.session.commit()
-            flash("Your items are saved.", "success")
-            return redirect(url_for("guest_claim", token=token, saved="1"))
+            link = ExpensePaymentLink.query.get(link.id)
+            expense = Expense.query.get(expense.id)
+            finalized = bool(expense.claims_finalized_at)
+            confirm_pay = request.form.get("confirm_pay") == "1"
+            if (
+                confirm_pay
+                and finalized
+                and link
+                and link.amount_owed > 0.01
+                and link.status != PAYMENT_STATUS_PAID
+            ):
+                return redirect(url_for("guest_pay", token=token))
+            if confirm_pay and not finalized:
+                return redirect(
+                    url_for("guest_split", token=token, saved="1", waiting="1")
+                )
+            return redirect(url_for("guest_split", token=token, saved="1"))
         except ValueError as exc:
             db.session.rollback()
             flash(str(exc), "error")
-            return redirect(url_for("guest_claim", token=token))
+            return redirect(url_for("guest_split", token=token))
 
-    preview_url = url_for("guest_claim_preview", token=token)
+    preview_url = url_for("guest_split_preview", token=token)
+    payment_confirmed = request.args.get("payment_confirmed") == "1"
+    ready_pay = request.args.get("ready_pay") == "1" or (
+        show_pay and request.args.get("saved") == "1"
+    )
+
+    toast_msg = None
+    if payment_confirmed or link.status == PAYMENT_STATUS_PAID:
+        toast_msg = "Payment received — thank you!"
+    elif request.args.get("saved") == "1" and request.args.get("waiting") == "1":
+        toast_msg = "Items saved — we'll notify you when everyone has claimed."
+    elif request.args.get("saved") == "1":
+        toast_msg = "Your items are saved."
+
     return render_template(
         "claim_items.html",
         invalid=False,
@@ -1748,13 +1781,24 @@ def guest_claim(token):
         user_claimed_ids=list(user_claimed_ids),
         confirmed=confirmed,
         finalized=finalized,
+        show_pay=show_pay or ready_pay,
         preview_url=preview_url,
-        saved=request.args.get("saved") == "1",
+        khalti_enabled=khalti_configured(app),
+        stripe_enabled=stripe_configured(app),
+        payment_confirmed=payment_confirmed or link.status == PAYMENT_STATUS_PAID,
+        toast_msg=toast_msg,
     )
 
 
+@app.route("/split/<path:token>", methods=["GET", "POST"])
+@app.route("/claim/<path:token>", methods=["GET", "POST"])
+def guest_split(token):
+    return _guest_split_page(token)
+
+
+@app.route("/split/<path:token>/preview", methods=["POST"])
 @app.route("/claim/<path:token>/preview", methods=["POST"])
-def guest_claim_preview(token):
+def guest_split_preview(token):
     link = get_payment_link_for_token(token)
     if link is None:
         return jsonify({"ok": False, "message": "Invalid link."}), 404
@@ -1783,13 +1827,25 @@ def finalize_claims_route(trip_id, expense_id):
     if trip is None:
         return redirect(url_for("dashboard"))
     expense = Expense.query.filter_by(id=expense_id, trip_id=trip.id).first_or_404()
-    if expense.paid_by != current_user.id and not TripMember.query.filter_by(
-        trip_id=trip.id, user_id=current_user.id
-    ).first():
-        flash("Not allowed.", "error")
-        return redirect(url_for("expense_detail", trip_id=trip.id, expense_id=expense.id))
+    return _finalize_expense_claims_handler(expense)
 
-    member_ids = [m.id for m in get_trip_members(trip.id)]
+
+@app.route("/expenses/<int:expense_id>/finalize-claims", methods=["POST"])
+@login_required
+def finalize_claims_standalone(expense_id):
+    expense = Expense.query.get_or_404(expense_id)
+    if not user_can_access_expense(current_user, expense):
+        flash("Not allowed.", "error")
+        return redirect(url_for("dashboard"))
+    return _finalize_expense_claims_handler(expense)
+
+
+def _finalize_expense_claims_handler(expense: Expense):
+    if expense.paid_by != current_user.id:
+        flash("Only the person who paid can finalize claims.", "error")
+        return redirect(expense_detail_url(expense))
+
+    member_ids = get_expense_member_ids(expense)
     try:
         finalize_expense_claims(expense, member_ids)
         db.session.commit()
@@ -1797,7 +1853,7 @@ def finalize_claims_route(trip_id, expense_id):
     except ValueError as exc:
         db.session.rollback()
         flash(str(exc), "error")
-    return redirect(url_for("expense_detail", trip_id=trip.id, expense_id=expense.id))
+    return redirect(expense_detail_url(expense))
 
 
 @app.route("/pay/<path:token>", methods=["GET"])

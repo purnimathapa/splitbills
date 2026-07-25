@@ -90,7 +90,8 @@
                 const url = button.getAttribute('data-url');
                 if (!url) return;
                 navigator.clipboard.writeText(url).then(function () {
-                    toast('Payment link copied', 'success');
+                    const label = button.getAttribute('data-copy-label') || 'Link copied';
+                    toast(label, 'success');
                 });
             });
         });

@@ -10,12 +10,13 @@ from expense_split_logic import (
     round_money,
 )
 from models import (
+    PAYMENT_STATUS_PAID,
+    PAYMENT_STATUS_PENDING,
     Expense,
     ExpenseItem,
     ExpenseItemAssignment,
     ExpensePaymentLink,
     ExpenseSplit,
-    PAYMENT_STATUS_PENDING,
     db,
 )
 
@@ -220,6 +221,13 @@ def claim_status_for_expense(expense: Expense, member_ids: list[int]) -> dict:
     participants = [uid for uid in member_ids if uid != expense.paid_by]
     claimed_user_ids = {link.user_id for link in links if link.items_claimed_at}
 
+    debtor_links = [link for link in links if link.user_id != expense.paid_by]
+    expected_total = round_money(sum(link.amount_owed or 0 for link in debtor_links))
+    collected_total = round_money(
+        sum(link.amount_owed or 0 for link in debtor_links if link.status == PAYMENT_STATUS_PAID)
+    )
+    pending_total = round_money(max(expected_total - collected_total, 0))
+
     return {
         "self_service": bool(getattr(expense, "self_service_items", False)),
         "finalized": bool(getattr(expense, "claims_finalized_at", None)),
@@ -229,6 +237,9 @@ def claim_status_for_expense(expense: Expense, member_ids: list[int]) -> dict:
         "claimed_user_ids": claimed_user_ids,
         "all_claimed": len(claimed_user_ids) >= len(participants) and len(participants) > 0,
         "all_items_claimed": len(unclaimed) == 0,
+        "expected_total": expected_total,
+        "collected_total": collected_total,
+        "pending_total": pending_total,
     }
 
 

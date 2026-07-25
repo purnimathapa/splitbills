@@ -111,6 +111,29 @@ def paginate_activity(
     return q.paginate(page=page, per_page=per_page, error_out=False)
 
 
+def paginate_activity_for_user(
+    user_id: int,
+    trip_ids: list[int],
+    *,
+    page: int = 1,
+    per_page: int = 20,
+) -> Pagination:
+    from expense_participants import visible_expense_ids_for_user
+
+    expense_ids = visible_expense_ids_for_user(user_id, trip_ids)
+    conditions = []
+    if trip_ids:
+        conditions.append(ActivityLog.trip_id.in_(trip_ids))
+    if expense_ids:
+        conditions.append(ActivityLog.related_expense_id.in_(expense_ids))
+    if not conditions:
+        q = ActivityLog.query.filter(ActivityLog.id < 0)
+    else:
+        q = ActivityLog.query.filter(or_(*conditions))
+    q = q.order_by(ActivityLog.created_at.desc(), ActivityLog.id.desc())
+    return q.paginate(page=page, per_page=per_page, error_out=False)
+
+
 def recent_activity_for_user(
     user_id: int,
     trip_ids: list[int],

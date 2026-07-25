@@ -98,6 +98,7 @@ from activity_log import (
     log_member_joined,
     log_payment_confirmed,
     paginate_activity,
+    paginate_activity_for_user,
     recent_activity,
     recent_activity_for_user,
 )
@@ -840,7 +841,9 @@ def activity_global():
     trips, _ = get_user_expenses()
     trip_ids = [t.id for t in trips]
     page = request.args.get("page", 1, type=int)
-    pagination = paginate_activity(trip_ids, page=page, per_page=20)
+    pagination = paginate_activity_for_user(
+        current_user.id, trip_ids, page=page, per_page=20
+    )
     return render_template(
         "activity.html",
         pagination=pagination,

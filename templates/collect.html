@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "macros/ui.html" import user_avatar %}
+{% from "macros/empty_state.html" import empty_state %}
 
 {% block content %}
 
@@ -15,9 +16,9 @@
             </div>
         </header>
 
-        <div class="balance-card balance-card--positive page-section">
-            <p class="text-upper">Outstanding to collect</p>
-            <p class="balance-card__amount text-success">{{ currency }} {{ (pending_total * conversion_rate)|round(2) }}</p>
+        <div class="wallet-hero balance-card balance-card--positive page-section">
+            <p class="wallet-hero__label">Outstanding to collect</p>
+            <p class="balance-card__amount wallet-hero__amount text-success tabular-nums">{{ currency }} {{ (pending_total * conversion_rate)|round(2) }}</p>
             <p class="text-caption">{{ pending_count }} link{% if pending_count != 1 %}s{% endif %} waiting</p>
         </div>
 
@@ -30,7 +31,7 @@
                             {% if row.guest %}{{ user_avatar(row.guest, 'sm') }}{% endif %}
                             <div>
                                 <strong>{{ row.guest.name if row.guest else 'Guest' }}</strong>
-                                <p class="text-caption">{{ row.expense.description }} · {{ row.trip.trip_name if row.trip else 'Group' }}</p>
+                                <p class="text-caption">{{ row.expense.description }} · {% if row.trip %}{{ row.trip.trip_name }}{% else %}One-off split{% endif %}</p>
                                 <span class="badge badge-neutral">Pending</span>
                             </div>
                         </div>
@@ -42,11 +43,7 @@
                 </div>
                 {% endfor %}
             {% else %}
-                <div class="empty-state">
-                    <h3>Nothing to collect yet</h3>
-                    <p class="text-caption">Add an expense where you paid — each member gets a link automatically.</p>
-                    <a href="{{ url_for('dashboard_groups') }}" class="btn-primary btn-sm">Open a group</a>
-                </div>
+                {{ empty_state('💸', 'Nothing to collect yet', 'When you pay a bill, each person gets a secure link automatically.', url_for('new_split'), 'Create a split') }}
             {% endif %}
         </div>
 

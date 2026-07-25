@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros/empty_state.html" import empty_state %}
 
 {% block content %}
 
@@ -20,7 +21,7 @@
                 <h2 class="text-h3">People on this split</h2>
                 <p class="text-caption">You're paying; select everyone who should share the cost.</p>
                 {% if members|length <= 1 and not friends %}
-                <p class="text-caption">Invite friends to a <a href="{{ url_for('create_group') }}">split group</a> first, or join one with an invite code, so you have people to split with.</p>
+                {{ empty_state('👋', 'Add people to split with', 'Create or join a split group to invite friends, then start a one-off or group bill.', url_for('create_group'), 'Create a group') }}
                 {% endif %}
                 <ul class="participant-pick-list">
                     {% for member in members %}

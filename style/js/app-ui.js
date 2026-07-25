@@ -181,5 +181,11 @@
         if (document.body.dataset.toastSuccess) {
             toast(document.body.dataset.toastSuccess, 'success');
         }
+        if (document.body.dataset.toastError) {
+            toast(document.body.dataset.toastError, 'error');
+        }
+        if (document.body.dataset.toastInfo) {
+            toast(document.body.dataset.toastInfo, 'info');
+        }
     });
 })();

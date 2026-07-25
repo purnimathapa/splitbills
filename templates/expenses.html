@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "macros/ui.html" import user_avatar %}
+{% from "macros/empty_state.html" import empty_state %}
 
 {% block content %}
 
@@ -97,9 +98,7 @@
                     <div class="date-group-spacer"></div>
                     {% endfor %}
                 {% else %}
-                    <div class="empty-state">
-                        <p class="text-caption">Add an expense from any group page.</p>
-                    </div>
+                    {{ empty_state('🧾', 'No expenses yet', 'Start a split from Home or open a group to log your first bill.', url_for('new_split'), 'New split') }}
                 {% endif %}
             </div>
         </section>

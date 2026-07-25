@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros/empty_state.html" import empty_state %}
 
 {% block content %}
 
@@ -21,19 +22,16 @@
         <div class="card card--flush">
             {% if receipt_expenses %}
                 {% for exp in receipt_expenses %}
-                <a class="list-row" href="{{ url_for('expense_detail', trip_id=exp.trip_id, expense_id=exp.id) }}">
+                <a class="list-row" href="{{ expense_url(exp) }}">
                     <div>
                         <strong>{{ exp.description }}</strong>
-                        <p class="text-caption">{{ trips_by_id[exp.trip_id].trip_name if exp.trip_id in trips_by_id else 'Group' }}</p>
+                        <p class="text-caption">{% if exp.trip_id and exp.trip_id in trips_by_id %}{{ trips_by_id[exp.trip_id].trip_name }}{% else %}One-off split{% endif %}</p>
                     </div>
                     <img src="{{ url_for('static', filename=exp.receipt_image_url) }}" alt="" width="56" height="56" class="receipt-thumb">
                 </a>
                 {% endfor %}
             {% else %}
-                <div class="empty-state">
-                    <h3>No receipts yet</h3>
-                    <p class="text-caption">Attach a photo when adding an expense, then tap Scan receipt.</p>
-                </div>
+                {{ empty_state('🧾', 'No receipts yet', 'Attach a photo when creating a split, then scan for line items.', url_for('new_split'), 'New split') }}
             {% endif %}
         </div>
 

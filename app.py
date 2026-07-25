@@ -432,6 +432,21 @@ def get_trip_or_redirect(trip_id):
     return trip
 
 
+def get_split_candidate_users():
+    """People you can add to a one-off receipt split (not tied to a group)."""
+    ids: set[int] = {current_user.id}
+    ids.update(friend_user_ids_from_standalone(current_user.id))
+    for friend in get_all_friends():
+        ids.add(friend.id)
+    return User.query.filter(User.id.in_(ids)).order_by(User.name).all()
+
+
+def guest_link_url_for_row(link: ExpensePaymentLink, expense: Expense | None) -> str:
+    if expense and getattr(expense, "self_service_items", False) and not expense.claims_finalized_at:
+        return build_guest_claim_url_for_link(link)
+    return build_guest_payment_url_for_link(link)
+
+
 def get_payment_hub_for_user(user_id: int) -> dict:
     """Pending/collected guest links for expenses this user paid."""
     paid_expense_ids = [
@@ -469,7 +484,12 @@ def get_payment_hub_for_user(user_id: int) -> dict:
             "expense": expense,
             "guest": guest,
             "trip": trip,
-            "url": build_guest_payment_url_for_link(link),
+            "url": guest_link_url_for_row(link, expense),
+            "is_claim_link": bool(
+                expense
+                and getattr(expense, "self_service_items", False)
+                and not expense.claims_finalized_at
+            ),
         }
         if link.status == PAYMENT_STATUS_PAID:
             collected.append(row)
@@ -931,6 +951,8 @@ def dashboard():
     active_trips = [t for t in trips if t.is_active]
     payment_hub = get_payment_hub_for_user(current_user.id)
     net_balance = get_user_net_balance(current_user.id)
+    chart_pending = round(payment_hub["pending_total"] * float(session.get("conversion_rate", 1.0)), 2)
+    chart_collected = round(payment_hub["collected_total"] * float(session.get("conversion_rate", 1.0)), 2)
     recent_receipts = (
         Expense.query.filter(
             Expense.paid_by == current_user.id,
@@ -955,6 +977,8 @@ def dashboard():
         trip_names=trip_names,
         payment_hub=payment_hub,
         net_balance=net_balance,
+        chart_pending=chart_pending,
+        chart_collected=chart_collected,
         recent_receipts=recent_receipts,
         first_active=first_active,
         fab_trip=fab_trip,
@@ -1321,34 +1345,13 @@ def analytics():
 @app.route("/splits/new", methods=["GET", "POST"])
 @login_required
 def new_split():
-    """Create a split: pick who's in, optionally file under a split group, then add the bill."""
-    groups = [t for t in get_user_trips() if t.is_active]
-    friends = get_all_friends()
+    """One-off receipt split: scan items → guest links (never tied to a group)."""
+    members_for_form = get_split_candidate_users()
 
     if request.method == "POST":
-        organize_trip_id = request.form.get("organize_trip_id", type=int)
-        trip_id = None
-        if organize_trip_id:
-            trip = get_trip_or_redirect(organize_trip_id)
-            if trip is None:
-                flash("That split group was not found.", "error")
-                return redirect(url_for("new_split"))
-            trip_id = trip.id
-
-        if trip_id:
-            member_ids = get_trip_member_ids(trip_id)
-            raw_participants = request.form.getlist("participant_user_ids")
-            if raw_participants:
-                picked = parse_participant_ids_from_form(
-                    request.form, current_user.id
-                )
-                member_ids = [uid for uid in picked if uid in member_ids]
-                if current_user.id not in member_ids:
-                    member_ids.append(current_user.id)
-        else:
-            member_ids = parse_participant_ids_from_form(
-                request.form, current_user.id
-            )
+        member_ids = parse_participant_ids_from_form(
+            request.form, current_user.id
+        )
 
         try:
             expense = create_expense_from_form(
@@ -1356,44 +1359,22 @@ def new_split():
                 request.files.get("receipt"),
                 payer_user_id=current_user.id,
                 member_ids=member_ids,
-                trip_id=trip_id,
+                trip_id=None,
                 app=app,
                 save_receipt_fn=save_receipt_file,
                 log_created_fn=log_expense_created,
             )
             db.session.commit()
-            flash("Split created.", "success")
+            flash("Split created — copy each person's link below.", "success")
             return redirect(expense_detail_url(expense))
         except ValueError as exc:
             db.session.rollback()
             flash(str(exc), "error")
             return redirect(url_for("new_split"))
 
-    group_id = request.args.get("group_id", type=int)
-    selected_participant_ids: set[int] = {current_user.id}
-    organize_trip_id = group_id
-    trip = None
-
-    if group_id:
-        trip = get_trip_or_redirect(group_id)
-        if trip:
-            selected_participant_ids.update(get_trip_member_ids(trip.id))
-
-    members_for_form = []
-    if group_id and trip:
-        members_for_form = get_trip_members(trip.id)
-    elif friends:
-        members_for_form = [current_user] + [f for f in friends if f.id != current_user.id]
-    else:
-        members_for_form = [current_user]
-
     return render_template(
         "new_split.html",
-        groups=groups,
-        friends=friends,
         members=members_for_form,
-        selected_participant_ids=sorted(selected_participant_ids),
-        organize_trip_id=organize_trip_id,
         expense_form_action=url_for("new_split"),
         scan_receipt_url=url_for("scan_receipt_standalone"),
     )

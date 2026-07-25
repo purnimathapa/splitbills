@@ -1,0 +1,23 @@
+{# Receipt scan → guest picks items (always one-off, no group) #}
+<input type="checkbox" name="use_itemized" id="use_itemized" checked hidden>
+<input type="checkbox" name="self_service_items" id="self_service_items" checked hidden>
+
+<div id="itemized-panel">
+    <p class="text-caption">Scan your receipt or add items manually. Each person gets a link to tap what they ate.</p>
+    <input type="hidden" name="item_row_count" id="item_row_count" value="0">
+    <div class="page-section__head">
+        <strong>Items on the receipt</strong>
+        <button type="button" class="btn-secondary btn-sm" id="add-item-row">+ Add item</button>
+    </div>
+    <div id="item-rows"></div>
+    <label class="form-label">Tax &amp; tip</label>
+    <input class="input-field" type="number" name="tax_tip_amount" id="tax_tip_amount" placeholder="0.00" min="0" step="0.01" value="0">
+    <p class="text-caption">
+        Subtotal: <strong id="items-subtotal">0.00</strong>
+        · Total: <strong id="items-grand-total">0.00</strong>
+    </p>
+</div>
+
+<div id="simple-split-panel" hidden aria-hidden="true">
+    <input type="hidden" name="split_method" id="split_method" value="equal">
+</div>

@@ -10,50 +10,41 @@
         <header class="page-head">
             <div>
                 <h1>New split</h1>
-                <p class="text-caption">Add the bill, choose how to split, pick who's in.</p>
+                <p class="text-caption">Scan the receipt → friends pick their items → they pay you back.</p>
             </div>
             <a href="{{ url_for('dashboard') }}" class="btn-secondary btn-sm">Cancel</a>
         </header>
 
-        <form method="POST" action="{{ expense_form_action }}" id="expense-form" class="expense-form form-stack" enctype="multipart/form-data">
+        <form method="POST" action="{{ url_for('new_split') }}" id="expense-form" class="expense-form form-stack" enctype="multipart/form-data" novalidate data-flow="receipt-guest">
 
             <section class="card card-section">
-                <h2 class="text-h3">The bill</h2>
-                <input class="input-field" type="text" name="description" placeholder="Where was it? (e.g. Quarters Korean BBQ)" required>
-                <label class="form-label">Receipt photo</label>
+                <h2 class="text-h3">1. Receipt</h2>
+                <input class="input-field" type="text" name="description" id="split-description" placeholder="Restaurant or store name" required>
+                <label class="form-label">Photo of receipt</label>
                 <input class="input-field" type="file" name="receipt" id="receipt-input" accept="image/jpeg,image/png,image/gif,image/webp">
-                <button type="button" class="btn-secondary btn-sm btn-block" id="scan-receipt-btn" disabled>Smart scan receipt</button>
+                <button type="button" class="btn-primary btn-block" id="scan-receipt-btn" disabled>Scan receipt</button>
                 <div id="ocr-status" class="ocr-status" role="status" hidden></div>
             </section>
 
-            {% include "partials/split_method_picker.html" %}
-
-            <section class="card card-section" id="split-group-panel" hidden>
-                <h2 class="text-h3">Which group?</h2>
-                <label class="form-label" for="organize_trip_id">File under split group</label>
-                <select class="input-field" name="organize_trip_id" id="organize_trip_id">
-                    <option value="">Choose a group…</option>
-                    {% for g in groups %}
-                    <option value="{{ g.id }}" {% if organize_trip_id == g.id %}selected{% endif %}>{{ g.trip_name }}</option>
-                    {% endfor %}
-                </select>
-                <p class="text-caption">No group yet? <a href="{{ url_for('create_group') }}">Create one</a></p>
+            <section class="card card-section">
+                <h2 class="text-h3">2. Line items</h2>
+                {% include "partials/receipt_guest_split_fields.html" %}
             </section>
 
             <section class="card card-section">
-                <h2 class="text-h3">Who's in?</h2>
-                <p class="text-caption">You're paying — select everyone sharing the cost.</p>
-                {% if members|length <= 1 and not friends %}
-                {{ empty_state('👋', 'Add people first', 'Create a split group and invite friends, then come back here.', url_for('create_group'), 'Create group') }}
+                <h2 class="text-h3">3. Who ate?</h2>
+                <p class="text-caption">Select everyone at the table (including you). Each gets a private link.</p>
+                {% if members|length <= 1 %}
+                {{ empty_state('👋', 'Need at least one friend', 'Ask friends to register, or create a split group and invite them — then they appear here.', url_for('create_group'), 'Invite friends') }}
                 {% endif %}
                 <ul class="participant-pick-list">
                     {% for member in members %}
                     <li>
                         <label class="form-row-inline">
                             <input type="checkbox" name="participant_user_ids" value="{{ member.id }}"
-                                {% if member.id in selected_participant_ids %}checked{% endif %}
+                                {% if member.id != current_user.id %}checked{% endif %}
                                 {% if member.id == current_user.id %}checked disabled{% endif %}>
-                            {{ member.name }}{% if member.id == current_user.id %} (you){% endif %}
+                            {{ member.name }}{% if member.id == current_user.id %} (you, paid){% endif %}
                         </label>
                     </li>
                     {% endfor %}
@@ -61,16 +52,12 @@
                 <input type="hidden" name="participant_user_ids" value="{{ current_user.id }}">
             </section>
 
-            <section class="card card-section split-amount-section">
-                {% set hide_bill_fields = true %}
-                {% include "partials/add_expense_form_fields.html" %}
-            </section>
-
-            <button type="submit" class="btn-primary btn-block btn-new-split">Create split &amp; get links</button>
+            <button type="submit" class="btn-primary btn-block btn-new-split" id="create-split-btn">Create split &amp; share links</button>
+            <p class="text-caption text-center" id="form-error" role="alert" hidden></p>
         </form>
 
         {% include "partials/add_expense_scripts.html" %}
-        <script src="{{ url_for('static', filename='js/split-flow.js') }}"></script>
+        <script src="{{ url_for('static', filename='js/new-split.js') }}"></script>
     </main>
 </div>
 

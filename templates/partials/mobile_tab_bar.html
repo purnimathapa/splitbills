@@ -7,12 +7,12 @@
         <span class="tab-bar__icon" aria-hidden="true">◎</span>
         <span class="tab-bar__label">Activity</span>
     </a>
-    <a href="{{ url_for('new_split') }}" class="tab-bar__item tab-bar__item--accent {% if request.endpoint in ['new_split', 'add_expense'] %}is-active{% endif %}">
-        <span class="tab-bar__icon" aria-hidden="true">+</span>
-        <span class="tab-bar__label">Split</span>
+    <a href="{{ url_for('new_split') }}" class="tab-bar__fab {% if request.endpoint == 'new_split' %}is-active{% endif %}" aria-label="New split">
+        <span aria-hidden="true">+</span>
     </a>
     <a href="{{ url_for('profile') }}" class="tab-bar__item {% if request.endpoint == 'profile' %}is-active{% endif %}">
         <span class="tab-bar__icon" aria-hidden="true">◉</span>
         <span class="tab-bar__label">Profile</span>
     </a>
+    <span class="tab-bar__spacer" aria-hidden="true"></span>
 </nav>

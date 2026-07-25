@@ -1978,6 +1978,42 @@ body.modal-open {
     -webkit-backdrop-filter: blur(20px);
     border-top: 1px solid var(--color-border);
     box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.04);
+    grid-template-columns: 1fr 1fr 72px 1fr 1fr;
+    align-items: end;
+    padding-left: var(--space-2);
+    padding-right: var(--space-2);
+}
+
+.tab-bar__spacer {
+    display: none;
+}
+
+.tab-bar__fab {
+    grid-column: 3;
+    justify-self: center;
+    width: 56px;
+    height: 56px;
+    margin-bottom: calc(var(--space-2) + 4px);
+    border-radius: 50%;
+    background: linear-gradient(145deg, #6d28d9, #7c3aed);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    font-weight: var(--weight-bold);
+    text-decoration: none;
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-10px);
+    transition: transform var(--motion-fast), box-shadow var(--motion-fast);
+}
+
+.tab-bar__fab:active {
+    transform: translateY(-8px) scale(0.96);
+}
+
+.tab-bar__fab.is-active {
+    box-shadow: 0 0 0 3px var(--color-primary-soft);
 }
 
 .tab-bar__item {
@@ -2034,7 +2070,7 @@ body.modal-open {
 }
 
     .app-authenticated.has-tab-bar .tab-bar {
-        display: flex;
+        display: grid;
     }
 
     .app-authenticated.has-tab-bar .app-main {
@@ -2222,9 +2258,19 @@ body.modal-open {
     padding: var(--space-3) 0;
 }
 
-.advanced-split-options {
-    margin-top: var(--space-4);
-    padding-top: var(--space-3);
-    border-top: 1px solid var(--color-border);
+#form-error {
+    color: var(--color-danger);
+    margin-top: var(--space-2);
+}
+
+.dashboard-chart-card {
+    margin-bottom: var(--space-6);
+}
+
+.dashboard-chart-wrap {
+    position: relative;
+    height: 200px;
+    max-width: 280px;
+    margin: 0 auto;
 }
 

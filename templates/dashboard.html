@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% from "macros/balance.html" import balance_card %}
-{% from "macros/activity_feed.html" import activity_feed %}
 {% from "macros/empty_state.html" import empty_state %}
 
 {% block content %}
@@ -10,55 +9,52 @@
 
     <main class="app-main dashboard-home">
 
+        <header class="split-home-header">
+            <p class="split-home-greeting">Hey {{ current_user.name.split()[0] }}!</p>
+            <p class="text-caption">Here's money in motion</p>
+        </header>
+
         <section class="dashboard-home__hero">
-            {{ balance_card(net_balance, 'Your balance across split groups', conversion_rate) }}
-            <a href="{{ url_for('new_split') }}" class="btn-primary btn-block btn-new-split">+ New split</a>
+            {{ balance_card(net_balance, '', conversion_rate) }}
         </section>
 
-        <section class="page-section">
+        <section class="page-section" id="need-collect">
             <div class="page-section__head">
-                <h2>Awaiting payment</h2>
+                <h2>Need to collect</h2>
                 {% if payment_hub.pending_count %}
-                <span class="badge badge-neutral">{{ payment_hub.pending_count }} pending</span>
+                <span class="badge badge-neutral">{{ payment_hub.pending_count }}</span>
                 {% endif %}
             </div>
 
             {% if payment_hub.pending_links %}
-            <div class="pending-splits-scroll" tabindex="0" aria-label="Pending splits">
-                {% for row in payment_hub.pending_links[:12] %}
-                <article class="pending-split-card card">
-                    <p class="pending-split-card__amount wallet-hero__amount tabular-nums">{{ currency }} {{ (row.link.amount_owed * conversion_rate)|round(2) }}</p>
-                    <p class="pending-split-card__name"><strong>{{ row.guest.name if row.guest else 'Guest' }}</strong></p>
-                    <p class="text-caption pending-split-card__meta">{{ row.expense.description if row.expense else 'Expense' }}</p>
-                    <p class="text-caption">{% if row.trip %}{{ row.trip.trip_name }}{% else %}One-off split{% endif %} · <span class="badge badge-neutral">Pending</span></p>
-                    <button type="button" class="btn-secondary btn-sm btn-block copy-pay-link" data-url="{{ row.url }}">Copy pay link</button>
+            <div class="need-collect-list">
+                {% for row in payment_hub.pending_links[:20] %}
+                <article class="need-collect-row card">
+                    <div class="need-collect-row__main">
+                        <p class="need-collect-row__title">{{ row.expense.description if row.expense else 'Expense' }}</p>
+                        <p class="text-caption">
+                            {% if row.guest %}{{ row.guest.name }}{% else %}Guest{% endif %}
+                            · {{ currency }} {{ (row.link.amount_owed * conversion_rate)|round(2) }}
+                            {% if row.expense and row.expense.created_at %}
+                            · {{ row.expense.created_at.strftime('%I:%M %p') }}
+                            {% endif %}
+                        </p>
+                    </div>
+                    <button type="button" class="btn-primary btn-sm need-collect-row__share copy-pay-link" data-url="{{ row.url }}" data-copy-label="Link copied — send it to your friend">Share link</button>
                 </article>
                 {% endfor %}
             </div>
-            <p class="text-caption dashboard-home__collect-link"><a href="{{ url_for('collect') }}">View all in Collect →</a></p>
             {% else %}
             <div class="card">
-                {{ empty_state('💸', 'Nothing waiting', 'When you cover a bill, pending shares show up here with links to send.', url_for('new_split'), 'Create a split') }}
+                {{ empty_state('💸', 'Nothing to collect', 'When you pay a bill, share links appear here so friends can pay you back.', url_for('new_split'), 'Start a split') }}
             </div>
             {% endif %}
         </section>
 
-        <section class="page-section">
-            <div class="page-section__head">
-                <h2>Recent activity</h2>
-                <a href="{{ url_for('activity_global') }}" class="link-muted">View all →</a>
-            </div>
-            <div class="card card--flush" data-feed-shell>
-                <div class="skeleton-feed" aria-hidden="true">
-                    {% for i in range(3) %}
-                    <div class="skeleton-feed__row"><span class="skeleton skeleton--avatar"></span><span class="skeleton skeleton--line"></span></div>
-                    {% endfor %}
-                </div>
-                <div class="feed-shell__content">
-                {{ activity_feed(activity_items, show_trip=true, empty_subtext='Add a split or share a payment link — activity will show up here.') }}
-                </div>
-            </div>
-        </section>
+        <p class="text-caption split-home-footnote">
+            <a href="{{ url_for('dashboard_groups') }}">Split groups</a>
+            · <a href="{{ url_for('activity_global') }}">Activity</a>
+        </p>
 
     </main>
 </div>

@@ -5,8 +5,8 @@
 
 {% block content %}
 
-<div class="pay-page claim-page">
-    <div class="card pay-card claim-card">
+<div class="pay-page claim-page guest-checkout">
+    <div class="card pay-card claim-card claim-card--guest">
 
         {% if invalid %}
             <h1>Invalid link</h1>
@@ -16,21 +16,23 @@
 
             <div class="pay-card__trust">
                 <span class="app-nav__mark">SB</span>
-                <span class="text-caption">Tap what you had · no account</span>
+                <span class="text-caption">No app needed</span>
             </div>
 
             {% if payment_confirmed %}
             <div class="empty-state">
                 <p class="balance-card__amount--settled">✓</p>
-                <h2 class="text-success">You're all set</h2>
-                <p class="text-caption">Payment received for <strong>{{ expense.description }}</strong>.</p>
+                <h2 class="text-success">Paid</h2>
+                <p class="text-caption">Thanks — you're all set for <strong>{{ expense.description }}</strong>.</p>
             </div>
 
             {% elif finalized and show_pay %}
-            <p class="tag">Ready to pay</p>
             <h1>Your share</h1>
             <p class="text-caption">{{ expense.description }}</p>
-            <p class="pay-amount wallet-hero__amount tabular-nums">{{ currency }} {{ (link.amount_owed * conversion_rate)|round(2) }}</p>
+            <div class="guest-share-card">
+                <p class="guest-share-card__label">Total</p>
+                <p class="pay-amount wallet-hero__amount tabular-nums">{{ currency }} {{ (link.amount_owed * conversion_rate)|round(2) }}</p>
+            </div>
             {% if payer %}
             <div class="pay-requester">
                 {{ initials_avatar(payer.name, 'md') }}
@@ -40,25 +42,22 @@
                 </div>
             </div>
             {% endif %}
-            <p class="text-caption">Hi {{ guest.name }}, choose how to pay:</p>
             {% include "partials/guest_pay_buttons.html" %}
 
             {% elif finalized %}
             <div class="empty-state">
                 <h2>All set</h2>
-                <p class="text-caption">This bill is finalized.</p>
                 {% if link.amount_owed and link.amount_owed > 0 %}
                 <p class="pay-amount wallet-hero__amount tabular-nums">{{ currency }} {{ (link.amount_owed * conversion_rate)|round(2) }}</p>
                 {% else %}
-                <p class="text-caption">You don't owe anything on this expense.</p>
+                <p class="text-caption">You don't owe anything on this bill.</p>
                 {% endif %}
             </div>
 
             {% else %}
 
-            <p class="tag">Split bill</p>
             <h1>Pick your items</h1>
-            <p class="text-caption">{{ expense.description }}{% if trip %} · {{ trip.trip_name }}{% endif %}</p>
+            <p class="text-caption">{{ expense.description }}</p>
 
             {% if payer %}
             <div class="pay-requester">
@@ -70,10 +69,10 @@
             </div>
             {% endif %}
 
-            <p class="text-caption">Hi {{ guest.name }} — tap everything you had. Shared dishes? Everyone who taps splits the cost.</p>
+            <p class="text-caption">Hi {{ guest.name }} — check everything you had.</p>
 
             <form method="POST" action="{{ url_for('guest_split', token=token) }}" id="claim-form" class="claim-form">
-                <ul class="claim-item-list">
+                <ul class="claim-item-list claim-item-list--guest">
                     {% for item in items %}
                     <li class="claim-item-row">
                         <label class="claim-item-label">
@@ -81,9 +80,6 @@
                                 {% if item.id in user_claimed_ids %}checked{% endif %}>
                             <span class="claim-item-body">
                                 <span class="claim-item-name">{{ item.name }}{% if item.quantity > 1 %} × {{ item.quantity|int if item.quantity == item.quantity|int else item.quantity }}{% endif %}</span>
-                                {% if item.shared_with %}
-                                <span class="text-small">Shared with {{ item.shared_with|join(', ') }}</span>
-                                {% endif %}
                             </span>
                             <span class="claim-item-price tabular-nums">{{ currency }} {{ (item.line_total * conversion_rate)|round(2) }}</span>
                         </label>
@@ -91,13 +87,15 @@
                     {% endfor %}
                 </ul>
 
+                <div class="guest-share-card">
+                    <p class="guest-share-card__label">Your share</p>
+                    <p class="text-caption">Updates as you tap items</p>
+                    <strong id="claim-live-total" class="wallet-hero__amount tabular-nums">{{ currency }} …</strong>
+                </div>
+
                 <div class="claim-checkout-bar">
-                    <div class="claim-total-bar" aria-live="polite">
-                        <span>Your total</span>
-                        <strong id="claim-live-total" class="wallet-hero__amount tabular-nums">{{ currency }} …</strong>
-                    </div>
-                    <button type="submit" name="confirm_pay" value="1" class="btn-primary btn-block">Confirm &amp; pay</button>
-                    <button type="submit" class="btn-secondary btn-block btn-sm">Save for later</button>
+                    <button type="submit" name="confirm_pay" value="1" class="btn-primary btn-block btn-guest-continue">Continue to payment</button>
+                    <button type="submit" class="btn-ghost btn-sm btn-block">Save for later</button>
                 </div>
             </form>
 

@@ -10,23 +10,21 @@
         <header class="page-head">
             <div>
                 <h1>Profile</h1>
-                <p class="text-caption">Your account</p>
+                <p class="text-caption">{{ current_user.email }}</p>
             </div>
         </header>
 
         <div class="card wallet-hero wallet-hero--neutral wallet-hero--row page-section">
             {{ user_avatar(current_user, 'lg') }}
             <div>
-                <p class="wallet-hero__label">Signed in as</p>
                 <p class="wallet-hero__title">{{ current_user.name }}</p>
-                <p class="text-caption">{{ current_user.email }}</p>
             </div>
         </div>
 
         <div class="card card--flush">
+            <a class="list-row" href="{{ url_for('dashboard_groups') }}">Split groups</a>
             <a class="list-row" href="{{ url_for('dashboard_friends') }}">Friends &amp; balances</a>
-            <a class="list-row" href="{{ url_for('collect') }}">Collect payments</a>
-            <a class="list-row" href="{{ url_for('wallet') }}">Wallet</a>
+            <a class="list-row" href="{{ url_for('wallet') }}">Payments received</a>
             <a class="list-row" href="{{ url_for('receipts') }}">Receipts</a>
         </div>
 

@@ -3,17 +3,15 @@
     <div class="app-nav__inner">
         <a href="{{ url_for('dashboard') }}" class="app-nav__brand">
             <span class="app-nav__mark">SB</span>
-            <span class="app-nav__brand-text">SplitBills</span>
+            <span class="app-nav__brand-text">Split</span>
         </a>
         <ul class="app-nav__links app-nav__links--desktop">
             <li><a href="{{ url_for('dashboard') }}" class="app-nav__link {% if request.endpoint == 'dashboard' %}is-active{% endif %}">Home</a></li>
             <li><a href="{{ url_for('activity_global') }}" class="app-nav__link {% if request.endpoint in ['activity_global', 'activity_trip'] %}is-active{% endif %}">Activity</a></li>
-            <li><a href="{{ url_for('new_split') }}" class="app-nav__link {% if request.endpoint in ['new_split', 'add_expense'] %}is-active{% endif %}">Split</a></li>
-            <li><a href="{{ url_for('dashboard_groups') }}" class="app-nav__link {% if request.endpoint in ['dashboard_groups', 'group_details', 'expense_detail', 'create_group', 'settlement'] %}is-active{% endif %}">Groups</a></li>
-            <li><a href="{{ url_for('collect') }}" class="app-nav__link {% if request.endpoint == 'collect' %}is-active{% endif %}">Collect</a></li>
+            <li><a href="{{ url_for('new_split') }}" class="app-nav__link {% if request.endpoint in ['new_split', 'add_expense'] %}is-active{% endif %}">New split</a></li>
+            <li><a href="{{ url_for('profile') }}" class="app-nav__link {% if request.endpoint == 'profile' %}is-active{% endif %}">Profile</a></li>
         </ul>
         <div class="app-nav__actions">
-            <button type="button" class="btn-secondary btn-sm" data-theme-toggle aria-label="Theme">◐</button>
             {% include "partials/notification_bell.html" %}
             {{ user_avatar(current_user, 'sm') }}
         </div>

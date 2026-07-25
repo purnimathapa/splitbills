@@ -1,3 +1,4 @@
+    {% if not hide_bill_fields %}
     <input class="input-field" type="text" name="description" placeholder="Description (e.g. Dinner at Mario's)" required>
 
     <input class="input-field" type="text" name="remarks" placeholder="Remarks (optional)">
@@ -9,30 +10,50 @@
         Scan receipt for line items
     </button>
     <div id="ocr-status" class="ocr-status" role="status" hidden></div>
+    {% endif %}
 
-    <label class="form-row-inline">
+    <label class="form-row-inline split-toggle-itemized">
         <input type="checkbox" name="use_itemized" id="use_itemized">
-        Itemize the receipt (line items)
+        Itemize (line items)
     </label>
-    <p class="text-caption">Choose how to split: self-service links, equal split on items, or assign manually below.</p>
 
     <div id="simple-split-panel">
-        <label class="form-label">How to split</label>
-        <select class="input-field" name="split_method" id="split_method">
-            <option value="equal">Equally among everyone</option>
-            <option value="exact">Exact amounts per person</option>
+        <input class="input-field" type="number" name="amount" id="simple_amount" placeholder="Total amount" min="0.01" step="0.01">
+        <input type="hidden" name="split_method" id="split_method" value="equal">
+        <p class="text-caption split-even-hint">Split equally among everyone selected.</p>
+    </div>
+
+    <div id="itemized-panel" hidden>
+        <label class="form-row-inline">
+            <input type="checkbox" name="self_service_items" id="self_service_items">
+            Send pick-your-items links (recommended for receipts)
+        </label>
+        <p class="text-caption" id="self-service-hint" hidden>Friends open their link, tap what they had, then pay — no account needed.</p>
+        <input type="hidden" name="item_row_count" id="item_row_count" value="0">
+        <div class="page-section__head">
+            <strong>Line items</strong>
+            <button type="button" class="btn-secondary btn-sm" id="add-item-row">+ Add item</button>
+        </div>
+        <div id="item-rows"></div>
+        <label class="form-label">Tax &amp; tip</label>
+        <input class="input-field" type="number" name="tax_tip_amount" id="tax_tip_amount" placeholder="0.00" min="0" step="0.01" value="0">
+        <p class="text-caption">
+            Subtotal: <strong id="items-subtotal">0.00</strong>
+            · Total: <strong id="items-grand-total">0.00</strong>
+        </p>
+    </div>
+
+    <details id="advanced-split-options" class="advanced-split-options" hidden>
+        <summary class="text-caption">More split options</summary>
+        <label class="form-label">Split method</label>
+        <select class="input-field" name="split_method_advanced" id="split_method_advanced" disabled aria-hidden="true">
+            <option value="equal">Equally</option>
+            <option value="exact">Exact amounts</option>
             <option value="percentage">By percentage</option>
             <option value="shares">By shares</option>
         </select>
-
-        <div id="split-panel-equal">
-            <input class="input-field" type="number" name="amount" id="simple_amount" placeholder="Total amount" min="0.01" step="0.01">
-            <p class="text-caption">Split equally among all {{ members|length }} member{% if members|length != 1 %}s{% endif %}.</p>
-        </div>
-
         <div id="split-panel-exact" hidden>
             <input class="input-field" type="number" name="amount_exact" id="amount_exact" placeholder="Total amount" min="0.01" step="0.01">
-            <p class="text-caption">Enter what each person owes (must add up to the total).</p>
             {% for member in members %}
             <div class="split-member-row">
                 <span>{{ member.name }}</span>
@@ -40,10 +61,8 @@
             </div>
             {% endfor %}
         </div>
-
         <div id="split-panel-percentage" hidden>
             <input class="input-field" type="number" name="amount_pct" id="amount_pct" placeholder="Total amount" min="0.01" step="0.01">
-            <p class="text-caption">Percentages must add to 100%.</p>
             {% for member in members %}
             <div class="split-member-row">
                 <span>{{ member.name }}</span>
@@ -51,10 +70,8 @@
             </div>
             {% endfor %}
         </div>
-
         <div id="split-panel-shares" hidden>
             <input class="input-field" type="number" name="amount_shares" id="amount_shares" placeholder="Total amount" min="0.01" step="0.01">
-            <p class="text-caption">Split total in proportion to share counts.</p>
             {% for member in members %}
             <div class="split-member-row">
                 <span>{{ member.name }}</span>
@@ -62,40 +79,14 @@
             </div>
             {% endfor %}
         </div>
-    </div>
-
-    <div id="itemized-panel" hidden>
-        <label class="form-row-inline">
-            <input type="checkbox" name="self_service_items" id="self_service_items">
-            Let everyone pick their own items (send claim links)
-        </label>
-        <p class="text-caption" id="self-service-hint" hidden>You'll get a link per person — they tap what they had. Shared dishes can be checked by multiple people.</p>
-        <input type="hidden" name="item_row_count" id="item_row_count" value="0">
-        <div class="page-section__head">
-            <strong>Line items</strong>
-            <button type="button" class="btn-secondary btn-sm" id="add-item-row">+ Add item</button>
-        </div>
-        <div id="item-rows"></div>
-        <label class="form-label">Tax &amp; tip (optional)</label>
-        <input class="input-field" type="number" name="tax_tip_amount" id="tax_tip_amount" placeholder="0.00" min="0" step="0.01" value="0">
-        <p class="text-caption">Tax and tip split in proportion to each person's item subtotal.</p>
-        <p class="text-caption">
-            Subtotal: <strong id="items-subtotal">0.00</strong>
-            · Total: <strong id="items-grand-total">0.00</strong>
-        </p>
-    </div>
-
-    <div class="card-section">
         <label class="form-row-inline">
             <input type="checkbox" name="is_recurring" id="is_recurring">
             Repeat this expense
         </label>
         <div id="recurrence-panel" hidden>
-            <label class="form-label" for="recurrence_interval">How often</label>
             <select class="input-field" name="recurrence_interval" id="recurrence_interval">
                 <option value="weekly">Weekly</option>
                 <option value="monthly" selected>Monthly</option>
             </select>
-            <p class="text-caption">Today's entry is recorded now. The same amount and split will be added automatically on each due date.</p>
         </div>
-    </div>
+    </details>

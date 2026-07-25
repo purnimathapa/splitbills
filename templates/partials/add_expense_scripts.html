@@ -46,7 +46,7 @@
     }
 
     function toggleSplitPanels() {
-        if (!splitMethod) return;
+        if (!splitMethod || splitMethod.tagName === 'INPUT') return;
         const method = splitMethod.value || 'equal';
         Object.keys(splitPanels).forEach(function (key) {
             const panel = splitPanels[key];
@@ -74,7 +74,7 @@
         const on = useItemized.checked;
         simplePanel.hidden = on;
         itemizedPanel.hidden = !on;
-        if (splitMethod) splitMethod.disabled = on;
+        if (splitMethod && splitMethod.tagName === 'SELECT') splitMethod.disabled = on;
         if (!on) toggleSplitPanels();
         else {
             if (simpleAmount) simpleAmount.required = false;
@@ -185,7 +185,7 @@
     scanReceiptBtn.addEventListener('click', scanReceipt);
     useItemized.addEventListener('change', togglePanels);
     if (selfService) selfService.addEventListener('change', toggleSelfServiceUi);
-    if (splitMethod) splitMethod.addEventListener('change', toggleSplitPanels);
+    if (splitMethod && splitMethod.tagName === 'SELECT') splitMethod.addEventListener('change', toggleSplitPanels);
     addItemBtn.addEventListener('click', function () { addItemRow(); });
     taxTipInput.addEventListener('input', updateTotals);
     togglePanels();

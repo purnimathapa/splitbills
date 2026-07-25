@@ -1030,16 +1030,12 @@ def dashboard_expenses():
 @app.route("/collect")
 @login_required
 def collect():
-    """Share payment links — guest checkout, no app required."""
-    hub = get_payment_hub_for_user(current_user.id)
+    """Legacy URL — home shows need-to-collect list."""
     highlight = request.args.get("highlight", type=int)
-    return render_template(
-        "collect.html",
-        pending_links=hub["pending_links"],
-        pending_total=hub["pending_total"],
-        pending_count=hub["pending_count"],
-        highlight_link_id=highlight,
-    )
+    url = url_for("dashboard", _anchor="need-collect")
+    if highlight:
+        url = url_for("dashboard", _anchor="need-collect")
+    return redirect(url)
 
 
 @app.route("/wallet")

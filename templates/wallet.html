@@ -43,7 +43,7 @@
                     </div>
                     {% endfor %}
                 {% else %}
-                    {{ empty_state('✓', 'No payments yet', 'When guests pay through your links, they show up here.', url_for('collect'), 'View pending') }}
+                    {{ empty_state('✓', 'No payments yet', 'When guests pay through your links, they show up here.', url_for('dashboard'), 'Go home') }}
                 {% endif %}
             </div>
         </section>

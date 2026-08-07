@@ -1,3 +1,4 @@
+{% from "macros/empty_state.html" import inline_empty %}
 <div class="notif-bell" data-notif-bell>
     <button type="button" class="notif-bell__toggle btn-secondary btn-sm" aria-expanded="false" aria-controls="notif-panel" aria-label="Notifications">
         🔔
@@ -18,14 +19,19 @@
             {% for note in notification_preview %}
             <li class="notif-panel__item {% if not note.read_at %}notif-panel__item--unread{% endif %}">
                 {% if note.href %}
-                <a href="{{ note.href }}">{{ note.message }}</a>
+                <a href="{{ url_for('notification_go', notification_id=note.id) }}">{{ note.message }}</a>
                 {% else %}
                 <span>{{ note.message }}</span>
+                {% if not note.read_at %}
+                <form method="POST" action="{{ url_for('notification_mark_read', notification_id=note.id) }}" class="notif-panel__mark-read">
+                    <button type="submit" class="link-muted text-caption">Mark read</button>
+                </form>
+                {% endif %}
                 {% endif %}
                 <time class="text-caption">{{ note.created_at|time_ago }}</time>
             </li>
             {% else %}
-            <li class="notif-panel__empty text-caption">You're all caught up.</li>
+            <li class="notif-panel__empty">{{ inline_empty("You're all caught up.") }}</li>
             {% endfor %}
         </ul>
     </div>

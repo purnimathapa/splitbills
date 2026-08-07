@@ -141,14 +141,12 @@ def run_payment_reminder_job(app, mail) -> dict:
                 expense = link.expense
                 guest = link.user
                 if expense and expense.paid_by and guest:
-                    from models import NOTIFICATION_REMINDER_SENT
-                    from notifications import create_notification
+                    from notifications import notify_reminder_sent
 
-                    create_notification(
+                    notify_reminder_sent(
                         expense.paid_by,
-                        f'Reminder sent to {guest.name} for "{expense.description or "a shared expense"}"',
-                        kind=NOTIFICATION_REMINDER_SENT,
-                        href="/collect",
+                        guest.name,
+                        expense.description or "a shared expense",
                     )
                 db.session.commit()
                 stats["sent"] += 1

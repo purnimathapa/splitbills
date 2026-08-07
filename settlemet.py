@@ -1,71 +1,57 @@
-def calculate_settlement(expenses, members):
-    """Net balances from expenses, then greedy payment matching.
+"""Group settlement: net balances from expenses, then debt simplification."""
 
-    Each expense credits the payer and debits participants using stored
-    expense_splits when present; otherwise falls back to an equal split of
-    that expense among trip members.
-    """
+from __future__ import annotations
 
-    if not members:
-        return []
+from decimal import Decimal
 
-    balances = {member.name: 0.0 for member in members}
-    member_count = len(members)
+from debt_simplify import greedy_settle
+from expense_split_logic import compute_equal_split
+from money import MONEY_EPSILON, ZERO, quantize_money
+
+
+def compute_net_balances(expenses, members) -> dict[str, Decimal]:
+    """Net balance per member name (positive = others owe them)."""
+    balances: dict[str, Decimal] = {member.name: ZERO for member in members}
+    member_by_id = {member.id: member for member in members}
+    member_ids = [member.id for member in members]
 
     for expense in expenses:
-        amount = expense.amount or 0
-        if amount <= 0:
+        amount = quantize_money(expense.amount or ZERO)
+        if amount <= ZERO:
             continue
 
-        balances[expense.payer.name] += amount
+        payer = expense.payer or member_by_id.get(expense.paid_by)
+        if payer is None:
+            continue
+        balances[payer.name] += amount
 
         splits = expense.splits if expense.splits is not None else []
         if splits:
-            user_by_id = {member.id: member for member in members}
             for split in splits:
-                user = split.user or user_by_id.get(split.user_id)
+                user = split.user or member_by_id.get(split.user_id)
                 if user is None:
                     continue
-                balances[user.name] -= split.amount_owed or 0
-        else:
-            share = amount / member_count
+                balances[user.name] -= quantize_money(split.amount_owed or ZERO)
+        elif member_ids:
+            # Equal split with cent drift fixed per expense (sum of shares == amount).
+            owed_by_id = compute_equal_split(amount, member_ids)
             for member in members:
+                share = quantize_money(owed_by_id.get(member.id, ZERO))
                 balances[member.name] -= share
 
-    debtors = []
-    creditors = []
+    return {name: quantize_money(value) for name, value in balances.items()}
 
-    for user, amount in balances.items():
-        if amount < -0.009:
-            debtors.append([user, abs(amount)])
-        elif amount > 0.009:
-            creditors.append([user, amount])
 
-    debtors.sort(key=lambda row: row[1], reverse=True)
-    creditors.sort(key=lambda row: row[1], reverse=True)
+def calculate_settlement(expenses, members):
+    """Net balances from expenses, then greedy payment matching."""
+    if not members:
+        return []
 
-    result = []
-    i = 0
-    j = 0
+    balances = compute_net_balances(expenses, members)
+    payments = greedy_settle(balances)
 
-    while i < len(debtors) and j < len(creditors):
-        pay = min(debtors[i][1], creditors[j][1])
-
-        result.append(
-            {
-                "from": debtors[i][0],
-                "to": creditors[j][0],
-                "amount": round(pay, 2),
-            }
-        )
-
-        debtors[i][1] -= pay
-        creditors[j][1] -= pay
-
-        if debtors[i][1] < 0.01:
-            i += 1
-
-        if creditors[j][1] < 0.01:
-            j += 1
-
-    return result
+    return [
+        {"from": debtor, "to": creditor, "amount": amount}
+        for debtor, creditor, amount in payments
+        if amount >= MONEY_EPSILON
+    ]

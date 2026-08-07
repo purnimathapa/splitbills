@@ -11,9 +11,12 @@
         <h1>Create account</h1>
         <p class="text-caption">Split bills, scan receipts, and collect payments.</p>
         <form method="POST" class="form-stack">
-            <input class="input-field" type="text" name="name" placeholder="Full name" required>
-            <input class="input-field" type="email" name="email" placeholder="Email" required>
-            <input class="input-field" type="password" name="password" placeholder="Password" required>
+            <label class="sr-only" for="register-name">Full name</label>
+            <input class="input-field" type="text" name="name" id="register-name" placeholder="Full name" autocomplete="name" required>
+            <label class="sr-only" for="register-email">Email</label>
+            <input class="input-field" type="email" name="email" id="register-email" placeholder="Email" autocomplete="email" required>
+            <label class="sr-only" for="register-password">Password</label>
+            <input class="input-field" type="password" name="password" id="register-password" placeholder="Password" autocomplete="new-password" required>
             <button class="btn-primary btn-block" type="submit">Sign up</button>
         </form>
         <p class="auth-switch">Already have an account? <a href="/login">Log in</a></p>

@@ -7,25 +7,23 @@
     {% else %}
     const scanReceiptUrl = {{ url_for('scan_receipt_standalone') | tojson }};
     {% endif %}
+
     const members = [
         {% for member in members %}
         { id: {{ member.id }}, name: {{ member.name|tojson }} }{% if not loop.last %},{% endif %}
         {% endfor %}
     ];
 
-    const useItemized = document.getElementById('use_itemized');
+    const SPLIT_TOLERANCE = 0.01;
+    const PCT_TOLERANCE = 0.05;
+
+    const form = document.getElementById('expense-form');
+    const formErrors = document.getElementById('expense-form-errors');
+    const splitMethod = document.getElementById('split_method');
+    const useItemizedHidden = document.getElementById('use_itemized');
+    const splitValidation = document.getElementById('split-validation-status');
     const selfService = document.getElementById('self_service_items');
     const selfServiceHint = document.getElementById('self-service-hint');
-    const simplePanel = document.getElementById('simple-split-panel');
-    const itemizedPanel = document.getElementById('itemized-panel');
-    const simpleAmount = document.getElementById('simple_amount');
-    const splitMethod = document.getElementById('split_method');
-    const splitPanels = {
-        equal: document.getElementById('split-panel-equal'),
-        exact: document.getElementById('split-panel-exact'),
-        percentage: document.getElementById('split-panel-percentage'),
-        shares: document.getElementById('split-panel-shares'),
-    };
     const itemRows = document.getElementById('item-rows');
     const rowCountInput = document.getElementById('item_row_count');
     const addItemBtn = document.getElementById('add-item-row');
@@ -35,168 +33,370 @@
     const receiptInput = document.getElementById('receipt-input');
     const scanReceiptBtn = document.getElementById('scan-receipt-btn');
     const ocrStatus = document.getElementById('ocr-status');
-    if (!useItemized) return;
+    const equalPreview = document.getElementById('equal-split-preview');
+
+    const splitPanels = {
+        equal: document.getElementById('split-panel-equal'),
+        exact: document.getElementById('split-panel-exact'),
+        percentage: document.getElementById('split-panel-percentage'),
+        shares: document.getElementById('split-panel-shares'),
+        itemized: document.getElementById('split-panel-itemized'),
+    };
+
+    const amountFields = {
+        equal: document.getElementById('simple_amount'),
+        exact: document.getElementById('amount_exact'),
+        percentage: document.getElementById('amount_pct'),
+        shares: document.getElementById('amount_shares'),
+    };
+
+    const isReceiptGuest = form && form.dataset.flow === 'receipt-guest';
+    if (isReceiptGuest && splitPanels.itemized === null) {
+        splitPanels.itemized = document.getElementById('itemized-panel');
+    }
+
+    if (!splitMethod && !isReceiptGuest) return;
 
     let rowIndex = 0;
 
-    function showOcrStatus(message, tone) {
-        ocrStatus.hidden = false;
-        ocrStatus.textContent = message;
-        ocrStatus.className = 'ocr-status ocr-status--' + (tone || 'info');
+    function selectedParticipantIds() {
+        const pick = document.getElementById('participant-pick');
+        if (!pick) return members.map(function (m) { return m.id; });
+        const ids = new Set();
+        pick.querySelectorAll('input[name="participant_user_ids"]:checked').forEach(function (cb) {
+            ids.add(parseInt(cb.value, 10));
+        });
+        pick.querySelectorAll('input[name="participant_user_ids"][type="hidden"]').forEach(function (input) {
+            ids.add(parseInt(input.value, 10));
+        });
+        const payer = document.getElementById('paid-by-select');
+        if (payer && payer.value) ids.add(parseInt(payer.value, 10));
+        return Array.from(ids);
+    }
+
+    function activeMembers() {
+        const ids = new Set(selectedParticipantIds());
+        return members.filter(function (m) { return ids.has(m.id); });
+    }
+
+    function parseNum(value) {
+        const n = parseFloat(value);
+        return isNaN(n) ? 0 : n;
+    }
+
+    function getActiveAmount() {
+        const method = splitMethod.value || 'equal';
+        const field = amountFields[method === 'itemized' ? 'equal' : method];
+        return field ? parseNum(field.value) : 0;
+    }
+
+    function showFormErrors(messages) {
+        if (!formErrors) return;
+        if (!messages.length) {
+            formErrors.hidden = true;
+            formErrors.innerHTML = '';
+            if (form) form.removeAttribute('aria-invalid');
+            return;
+        }
+        formErrors.hidden = false;
+        formErrors.innerHTML = '<ul>' + messages.map(function (m) {
+            return '<li>' + m + '</li>';
+        }).join('') + '</ul>';
+        if (form) form.setAttribute('aria-invalid', 'true');
+        formErrors.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function setSplitValidation(message, valid) {
+        if (!splitValidation) return;
+        splitValidation.textContent = message || '';
+        splitValidation.className = 'split-validation' + (message ? (valid ? ' split-validation--valid' : ' split-validation--invalid') : '');
+    }
+
+    function validateEqualSplit() {
+        const ids = selectedParticipantIds();
+        const amount = getActiveAmount();
+        if (ids.length < 2) return { valid: false, message: 'Select at least one other person to split with.' };
+        if (amount <= 0) return { valid: false, message: 'Enter a total amount greater than zero.' };
+        const share = (amount / ids.length).toFixed(2);
+        if (equalPreview) {
+            equalPreview.innerHTML = activeMembers().map(function (m) {
+                return '<li>' + m.name + ': ' + share + ' each</li>';
+            }).join('');
+        }
+        return { valid: true, message: ids.length + ' people × ' + share + ' each = ' + amount.toFixed(2) };
+    }
+
+    function validateExactSplit() {
+        const total = parseNum(amountFields.exact && amountFields.exact.value);
+        if (total <= 0) return { valid: false, message: 'Enter the total bill amount.' };
+        let sum = 0;
+        let any = false;
+        document.querySelectorAll('[data-split-kind="exact"]').forEach(function (input) {
+            const v = parseNum(input.value);
+            if (v > 0) any = true;
+            sum += v;
+        });
+        if (!any) return { valid: false, message: 'Enter at least one person\'s exact amount.' };
+        const diff = Math.abs(sum - total);
+        if (diff > SPLIT_TOLERANCE) {
+            return { valid: false, message: 'Exact amounts add up to ' + sum.toFixed(2) + ' but total is ' + total.toFixed(2) + '.' };
+        }
+        return { valid: true, message: 'Exact amounts add up correctly (' + sum.toFixed(2) + ').' };
+    }
+
+    function validatePercentageSplit() {
+        const total = parseNum(amountFields.percentage && amountFields.percentage.value);
+        if (total <= 0) return { valid: false, message: 'Enter the total bill amount.' };
+        let sum = 0;
+        let any = false;
+        document.querySelectorAll('[data-split-kind="pct"]').forEach(function (input) {
+            const v = parseNum(input.value);
+            if (v > 0) any = true;
+            sum += v;
+        });
+        if (!any) return { valid: false, message: 'Enter at least one percentage.' };
+        if (Math.abs(sum - 100) > PCT_TOLERANCE) {
+            return { valid: false, message: 'Percentages add up to ' + sum.toFixed(1) + '% — need 100%.' };
+        }
+        return { valid: true, message: 'Percentages add up to 100%.' };
+    }
+
+    function validateSharesSplit() {
+        const total = parseNum(amountFields.shares && amountFields.shares.value);
+        if (total <= 0) return { valid: false, message: 'Enter the total bill amount.' };
+        let sum = 0;
+        let any = false;
+        document.querySelectorAll('[data-split-kind="shares"]').forEach(function (input) {
+            const v = parseNum(input.value);
+            if (v > 0) any = true;
+            sum += v;
+        });
+        if (!any || sum <= 0) return { valid: false, message: 'Enter at least one share count.' };
+        return { valid: true, message: 'Shares total: ' + sum.toFixed(2) + ' — split will be proportional.' };
+    }
+
+    function validateItemizedSplit() {
+        const rows = itemRows ? itemRows.querySelectorAll('.item-row') : [];
+        if (!rows.length) return { valid: false, message: 'Add at least one line item.' };
+        let subtotal = 0;
+        let rowNum = 0;
+        for (let i = 0; i < rows.length; i++) {
+            rowNum++;
+            const row = rows[i];
+            const name = row.querySelector('[name^="item_name_"]');
+            const price = row.querySelector('.item-price');
+            const qty = row.querySelector('.item-qty');
+            const nameVal = name && name.value.trim();
+            const priceVal = parseNum(price && price.value);
+            const qtyVal = parseNum(qty && qty.value);
+            if (!nameVal) return { valid: false, message: 'Line item ' + rowNum + ' needs a name.' };
+            if (priceVal <= 0 || qtyVal <= 0) {
+                return { valid: false, message: '"' + nameVal + '" needs a valid price and quantity.' };
+            }
+            subtotal += priceVal * qtyVal;
+            if (!selfService || !selfService.checked) {
+                const assigned = row.querySelectorAll('.item-user-cb:checked').length;
+                if (assigned === 0) {
+                    return { valid: false, message: 'Assign "' + nameVal + '" to at least one person.' };
+                }
+            }
+        }
+        const taxTip = parseNum(taxTipInput && taxTipInput.value);
+        const grand = subtotal + taxTip;
+        if (grand <= 0) return { valid: false, message: 'Item total must be greater than zero.' };
+        return { valid: true, message: 'Items total: ' + grand.toFixed(2) + (selfService && selfService.checked ? ' (guests pick items on their links)' : '') + '.' };
+    }
+
+    function runSplitValidation() {
+        const method = splitMethod.value || 'equal';
+        let result;
+        if (method === 'itemized') result = validateItemizedSplit();
+        else if (method === 'exact') result = validateExactSplit();
+        else if (method === 'percentage') result = validatePercentageSplit();
+        else if (method === 'shares') result = validateSharesSplit();
+        else result = validateEqualSplit();
+        setSplitValidation(result.message, result.valid);
+        return result.valid;
     }
 
     function toggleSplitPanels() {
-        if (!splitMethod || splitMethod.tagName === 'INPUT') return;
-        const method = splitMethod.value || 'equal';
+        const method = (splitMethod && splitMethod.value) || (isReceiptGuest ? 'itemized' : 'equal');
+        if (useItemizedHidden) {
+            if (useItemizedHidden.type === 'checkbox') {
+                useItemizedHidden.checked = method === 'itemized';
+            } else {
+                useItemizedHidden.value = method === 'itemized' ? 'on' : '';
+            }
+        }
+
         Object.keys(splitPanels).forEach(function (key) {
             const panel = splitPanels[key];
             if (panel) panel.hidden = key !== method;
         });
-        if (simpleAmount) simpleAmount.required = method === 'equal' && !useItemized.checked;
-        const exactAmt = document.getElementById('amount_exact');
-        const pctAmt = document.getElementById('amount_pct');
-        const shAmt = document.getElementById('amount_shares');
-        if (exactAmt) exactAmt.required = method === 'exact' && !useItemized.checked;
-        if (pctAmt) pctAmt.required = method === 'percentage' && !useItemized.checked;
-        if (shAmt) shAmt.required = method === 'shares' && !useItemized.checked;
+
+        Object.keys(amountFields).forEach(function (key) {
+            const field = amountFields[key];
+            if (!field) return;
+            field.required = key === method && method !== 'itemized';
+        });
+
+        if (method === 'itemized' && itemRows && itemRows.children.length === 0 && addItemBtn) {
+            addItemRow();
+        }
+        toggleSelfServiceUi();
+        runSplitValidation();
     }
 
     function toggleSelfServiceUi() {
         if (!selfService) return;
         const on = selfService.checked;
         if (selfServiceHint) selfServiceHint.hidden = !on;
-        itemRows.querySelectorAll('.item-row-assign').forEach(function (el) {
-            el.hidden = on;
-        });
+        if (itemRows) {
+            itemRows.querySelectorAll('.item-row-assign').forEach(function (el) {
+                el.hidden = on;
+            });
+        }
+        runSplitValidation();
     }
 
-    function togglePanels() {
-        const on = useItemized.checked;
-        simplePanel.hidden = on;
-        itemizedPanel.hidden = !on;
-        if (splitMethod && splitMethod.tagName === 'SELECT') splitMethod.disabled = on;
-        if (!on) toggleSplitPanels();
-        else {
-            if (simpleAmount) simpleAmount.required = false;
-        }
-        if (on && itemRows.children.length === 0) addItemRow();
-        toggleSelfServiceUi();
-        updateTotals();
+    function showOcrStatus(message, tone) {
+        if (!ocrStatus) return;
+        ocrStatus.hidden = false;
+        ocrStatus.textContent = message;
+        ocrStatus.className = 'ocr-status ocr-status--' + (tone || 'info');
     }
 
     function memberCheckboxes(index, checkAll) {
-        if (!members.length) return '<p class="form-hint">No trip members.</p>';
+        if (!members.length) return '<p class="form-hint">No members.</p>';
         if (selfService && selfService.checked) {
-            return '<p class="text-caption item-row-assign-off">Guests pick items on their link — you don\'t assign food here.</p>';
+            return '<p class="text-caption item-row-assign-off">Guests pick items on their link.</p>';
         }
-        return members.map(function (m) {
+        const active = activeMembers();
+        return active.map(function (m) {
             return '<label class="checkbox-inline"><input type="checkbox" name="item_users_' + index + '" value="' + m.id + '" class="item-user-cb"' + (checkAll ? ' checked' : '') + '>' + m.name + '</label>';
         }).join('');
     }
 
     function addItemRow(prefill) {
+        if (!itemRows || !rowCountInput) return;
         const index = rowIndex++;
         rowCountInput.value = String(rowIndex);
         const checkAll = !!(prefill && prefill.checkAllMembers);
         const row = document.createElement('div');
         row.className = 'item-row';
-            row.innerHTML =
+        row.innerHTML =
             '<div class="item-row-grid">' +
-            '<input type="text" name="item_name_' + index + '" placeholder="Item name">' +
-            '<input type="number" name="item_price_' + index + '" class="item-price" placeholder="Price" min="0.01" step="0.01">' +
-            '<input type="number" name="item_quantity_' + index + '" class="item-qty" placeholder="Qty" min="0.01" step="0.01" value="1" required>' +
+            '<input type="text" name="item_name_' + index + '" placeholder="Item name" class="item-name">' +
+            '<input type="number" name="item_price_' + index + '" class="item-price" placeholder="Price" min="0.01" step="0.01" inputmode="decimal">' +
+            '<input type="number" name="item_quantity_' + index + '" class="item-qty" placeholder="Qty" min="0.01" step="0.01" value="1" inputmode="decimal">' +
             '<button type="button" class="btn-secondary btn-sm remove-item">Remove</button></div>' +
             '<div class="item-row-assign"><span class="form-label">Assigned to</span>' + memberCheckboxes(index, checkAll) + '</div>';
         itemRows.appendChild(row);
         if (prefill) {
-            if (prefill.name) row.querySelector('[name="item_name_' + index + '"]').value = prefill.name;
-            if (prefill.price) row.querySelector('[name="item_price_' + index + '"]').value = prefill.price;
-            if (prefill.quantity) row.querySelector('[name="item_quantity_' + index + '"]').value = prefill.quantity;
+            if (prefill.name) row.querySelector('.item-name').value = prefill.name;
+            if (prefill.price) row.querySelector('.item-price').value = prefill.price;
+            if (prefill.quantity) row.querySelector('.item-qty').value = prefill.quantity;
+            if (prefill.assigned_user_ids && prefill.assigned_user_ids.length) {
+                prefill.assigned_user_ids.forEach(function (uid) {
+                    const cb = row.querySelector('.item-user-cb[value="' + uid + '"]');
+                    if (cb) cb.checked = true;
+                });
+            }
         }
-        row.querySelector('.remove-item').addEventListener('click', function () { row.remove(); updateTotals(); });
+        row.querySelector('.remove-item').addEventListener('click', function () {
+            row.remove();
+            updateTotals();
+            runSplitValidation();
+        });
         row.querySelectorAll('input').forEach(function (input) {
-            input.addEventListener('input', updateTotals);
-            input.addEventListener('change', updateTotals);
+            input.addEventListener('input', function () { updateTotals(); runSplitValidation(); });
+            input.addEventListener('change', function () { updateTotals(); runSplitValidation(); });
         });
         updateTotals();
+        runSplitValidation();
     }
 
     function clearItemRows() {
+        if (!itemRows) return;
         itemRows.innerHTML = '';
         rowIndex = 0;
-        rowCountInput.value = '0';
+        if (rowCountInput) rowCountInput.value = '0';
     }
 
     function prefillFromOcr(items) {
         clearItemRows();
-        useItemized.checked = true;
-        togglePanels();
+        splitMethod.value = 'itemized';
+        toggleSplitPanels();
         items.forEach(function (item) {
-            addItemRow({ name: item.name, price: item.price, quantity: item.quantity || 1, checkAllMembers: false });
+            addItemRow({
+                name: item.name,
+                price: item.price,
+                quantity: item.quantity || 1,
+                checkAllMembers: false,
+            });
         });
-        updateTotals();
-        const section = document.getElementById('itemized-panel');
+        const section = splitPanels.itemized;
         if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function applyMerchantHint(data) {
         if (!data || !data.suggested_merchant) return;
-        const desc = document.getElementById('split-description');
-        if (desc && !desc.value.trim()) {
-            desc.value = data.suggested_merchant;
-        }
+        const desc = document.getElementById('expense-description') || document.getElementById('split-description');
+        if (desc && !desc.value.trim()) desc.value = data.suggested_merchant;
     }
 
     function updateTotals() {
+        if (!itemRows || !subtotalEl || !grandTotalEl) return;
         let subtotal = 0;
         itemRows.querySelectorAll('.item-row').forEach(function (row) {
-            const price = parseFloat(row.querySelector('.item-price')?.value || '0');
-            const qty = parseFloat(row.querySelector('.item-qty')?.value || '0');
-            if (price > 0 && qty > 0) subtotal += price * qty;
+            subtotal += parseNum(row.querySelector('.item-price') && row.querySelector('.item-price').value) *
+                parseNum(row.querySelector('.item-qty') && row.querySelector('.item-qty').value);
         });
-        const taxTip = parseFloat(taxTipInput.value || '0') || 0;
+        const taxTip = parseNum(taxTipInput && taxTipInput.value);
         subtotalEl.textContent = subtotal.toFixed(2);
         grandTotalEl.textContent = (subtotal + taxTip).toFixed(2);
     }
 
     async function scanReceipt() {
+        if (!receiptInput) return;
         const file = receiptInput.files && receiptInput.files[0];
         if (!file) { showOcrStatus('Choose a receipt image first.', 'warn'); return; }
-        const form = document.getElementById('expense-form');
         const autoFlow = form && form.dataset.flow === 'receipt-guest';
         if (scanReceiptBtn) {
             scanReceiptBtn.disabled = true;
-            scanReceiptBtn.textContent = autoFlow ? 'Scanning…' : 'Scanning…';
+            scanReceiptBtn.textContent = 'Scanning…';
         }
-        showOcrStatus('Reading receipt with AI…', 'warn');
+        showOcrStatus('Reading receipt… review items before saving.', 'warn');
         const body = new FormData();
         body.append('receipt', file);
         try {
             const response = await fetch(scanReceiptUrl, { method: 'POST', body: body, credentials: 'same-origin' });
             const data = await response.json();
             applyMerchantHint(data);
+            if (data.validation_warning) showOcrStatus(data.validation_warning, 'warn');
             if (data.success && data.items && data.items.length) {
                 prefillFromOcr(data.items);
-                showOcrStatus(data.message || 'Items ready — guests pick on their links.', data.confidence === 'high' ? 'success' : 'warn');
+                if (!data.validation_warning) {
+                    showOcrStatus(data.message || 'Items loaded — please review before saving.', data.confidence === 'high' ? 'success' : 'warn');
+                }
                 if (window.SplitBillsUI && window.SplitBillsUI.toast) {
-                    window.SplitBillsUI.toast('Receipt read — check items below', data.confidence === 'high' ? 'success' : 'info');
+                    window.SplitBillsUI.toast('Receipt scanned — review items before saving', data.confidence === 'high' ? 'success' : 'info');
                 }
             } else if (data.items && data.items.length) {
                 prefillFromOcr(data.items);
-                showOcrStatus(data.message || 'Review items below.', 'warn');
+                if (!data.validation_warning) showOcrStatus(data.message || 'Review items below.', 'warn');
             } else {
-                showOcrStatus(data.message || 'Add items manually with + Add item.', 'warn');
-                if (!useItemized.checked) { useItemized.checked = true; togglePanels(); }
-                if (autoFlow && itemRows && itemRows.children.length === 0 && addItemBtn) {
-                    addItemBtn.click();
-                }
+                showOcrStatus(data.message || 'Could not read items — add them manually.', 'warn');
+                splitMethod.value = 'itemized';
+                toggleSplitPanels();
+                if (autoFlow && itemRows && itemRows.children.length === 0 && addItemBtn) addItemRow();
             }
             if (autoFlow && scanReceiptBtn) {
                 scanReceiptBtn.hidden = false;
                 scanReceiptBtn.textContent = 'Scan again';
             }
         } catch (e) {
-            showOcrStatus('Scan failed. Add items with + Add item.', 'warn');
+            showOcrStatus('Scan failed. Add items manually.', 'warn');
         } finally {
             if (scanReceiptBtn) {
                 scanReceiptBtn.disabled = !(receiptInput.files && receiptInput.files.length);
@@ -205,34 +405,91 @@
         }
     }
 
-    receiptInput.addEventListener('change', function () {
-        const form = document.getElementById('expense-form');
-        const autoFlow = form && form.dataset.flow === 'receipt-guest';
-        if (scanReceiptBtn) scanReceiptBtn.disabled = !(receiptInput.files && receiptInput.files.length);
-        if (autoFlow && receiptInput.files && receiptInput.files.length) {
-            scanReceipt();
-        } else {
-            ocrStatus.hidden = true;
+    function validateFormSubmit() {
+        const errors = [];
+        const desc = document.getElementById('expense-description') || document.getElementById('split-description');
+        if (desc && !desc.value.trim()) errors.push('Enter a description for this expense.');
+
+        const ids = selectedParticipantIds();
+        if (ids.length < 2) errors.push('Pick at least one other person to split with.');
+
+        if (!runSplitValidation()) {
+            const method = splitMethod.value || 'equal';
+            if (method === 'exact') errors.push('Exact amounts must add up to the total.');
+            else if (method === 'percentage') errors.push('Percentages must add up to 100%.');
+            else if (method === 'itemized') errors.push('Fix line items before saving.');
+            else if (method === 'equal') errors.push('Enter a valid amount and select participants.');
+            else errors.push('Fix split amounts before saving.');
         }
-    });
+
+        showFormErrors(errors);
+        return errors.length === 0;
+    }
+
+    if (receiptInput) {
+        receiptInput.addEventListener('change', function () {
+            const autoFlow = form && form.dataset.flow === 'receipt-guest';
+            if (scanReceiptBtn) scanReceiptBtn.disabled = !(receiptInput.files && receiptInput.files.length);
+            if (autoFlow && receiptInput.files && receiptInput.files.length) scanReceipt();
+            else if (ocrStatus) ocrStatus.hidden = true;
+        });
+    }
     if (scanReceiptBtn) scanReceiptBtn.addEventListener('click', scanReceipt);
-    useItemized.addEventListener('change', togglePanels);
+    if (splitMethod) splitMethod.addEventListener('change', toggleSplitPanels);
     if (selfService) selfService.addEventListener('change', toggleSelfServiceUi);
-    if (splitMethod && splitMethod.tagName === 'SELECT') splitMethod.addEventListener('change', toggleSplitPanels);
-    addItemBtn.addEventListener('click', function () { addItemRow(); });
-    taxTipInput.addEventListener('input', updateTotals);
-    togglePanels();
-    toggleSplitPanels();
+    if (addItemBtn) addItemBtn.addEventListener('click', function () { addItemRow(); });
+    if (taxTipInput) taxTipInput.addEventListener('input', function () { updateTotals(); runSplitValidation(); });
+
+    document.querySelectorAll('.split-input, #simple_amount, #amount_exact, #amount_pct, #amount_shares').forEach(function (el) {
+        if (!el) return;
+        el.addEventListener('input', runSplitValidation);
+    });
+    const participantPick = document.getElementById('participant-pick');
+    if (participantPick) {
+        participantPick.addEventListener('change', function () { runSplitValidation(); });
+    }
+    const paidBy = document.getElementById('paid-by-select');
+    if (paidBy) paidBy.addEventListener('change', runSplitValidation);
+
+    if (form) {
+        form.addEventListener('submit', function (e) {
+            if (form.dataset.flow === 'receipt-guest') return;
+            if (!validateFormSubmit()) {
+                e.preventDefault();
+                return;
+            }
+            const btn = form.querySelector('button[type="submit"]');
+            if (btn && !btn.disabled) {
+                btn.disabled = true;
+                btn.classList.add('is-loading');
+                btn.textContent = 'Saving…';
+            }
+        });
+    }
 
     const isRecurring = document.getElementById('is_recurring');
     const recurrencePanel = document.getElementById('recurrence-panel');
-    function toggleRecurrence() {
-        if (!recurrencePanel || !isRecurring) return;
-        recurrencePanel.hidden = !isRecurring.checked;
+    if (isRecurring && recurrencePanel) {
+        isRecurring.addEventListener('change', function () {
+            recurrencePanel.hidden = !isRecurring.checked;
+        });
     }
-    if (isRecurring) {
-        isRecurring.addEventListener('change', toggleRecurrence);
-        toggleRecurrence();
+
+    const editItemsJson = document.getElementById('expense-edit-items-json');
+    if (editItemsJson) {
+        try {
+            const items = JSON.parse(editItemsJson.textContent);
+            splitMethod.value = 'itemized';
+            toggleSplitPanels();
+            items.forEach(function (item) { addItemRow(item); });
+        } catch (e) { /* ignore */ }
+    } else if (isReceiptGuest) {
+        if (splitPanels.itemized) splitPanels.itemized.hidden = false;
+        if (addItemBtn && itemRows && itemRows.children.length === 0) addItemRow();
+    } else {
+        toggleSplitPanels();
     }
+
+    updateTotals();
 })();
 </script>

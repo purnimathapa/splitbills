@@ -2,15 +2,18 @@
 {% if suggestion %}
 <div class="settle-suggestion-banner" role="status">
     <div class="settle-suggestion-banner__text">
-        <p class="settle-suggestion-banner__title">
-            You and <strong>{{ suggestion.other_name }}</strong> are only
-            <strong>{{ currency }} {{ (suggestion.amount * conversion_rate)|round(2) }}</strong> apart —
-            settle up now?
-        </p>
         {% if suggestion.viewer_owes %}
-        <p class="text-caption">You're slightly behind — paying now keeps things fair.</p>
+        <p class="settle-suggestion-banner__title">
+            You owe <strong>{{ suggestion.other_name }}</strong>
+            <span class="amount amount--owed">{{ currency }} {{ (suggestion.amount * conversion_rate)|round(2) }}</span>
+        </p>
+        <p class="text-caption">Pay your share to stay even — takes about a minute.</p>
         {% else %}
-        <p class="text-caption">They're almost even with you — send or copy their payment link.</p>
+        <p class="settle-suggestion-banner__title">
+            <strong>{{ suggestion.other_name }}</strong> owes you
+            <span class="amount amount--receivable">{{ currency }} {{ (suggestion.amount * conversion_rate)|round(2) }}</span>
+        </p>
+        <p class="text-caption">Send or copy their payment link so they can pay you back.</p>
         {% endif %}
     </div>
     <div class="settle-suggestion-banner__actions">
@@ -27,10 +30,13 @@
 
 {% macro settle_suggestion_list(suggestions) %}
 {% if suggestions %}
-<div class="settle-suggestion-stack">
-    {% for suggestion in suggestions %}
-    {{ settle_suggestion_banner(suggestion) }}
-    {% endfor %}
-</div>
+<section class="settlement-section">
+    <h2 class="settlement-section__title">Quick actions</h2>
+    <div class="settle-suggestion-stack">
+        {% for suggestion in suggestions %}
+        {{ settle_suggestion_banner(suggestion) }}
+        {% endfor %}
+    </div>
+</section>
 {% endif %}
 {% endmacro %}

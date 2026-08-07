@@ -1,0 +1,105 @@
+{# Guest payment page — amount, recipient, status, actions #}
+{% from "macros/ui.html" import initials_avatar %}
+
+{% macro payment_status_badge(state, label) %}
+<span class="payment-status-badge payment-status-badge--{{ state }}" role="status">{{ label }}</span>
+{% endmacro %}
+
+{% macro payment_detail_row(label, value, class='') %}
+<div class="payment-detail-row {{ class }}">
+    <span class="payment-detail-row__label">{{ label }}</span>
+    <span class="payment-detail-row__value">{{ value }}</span>
+</div>
+{% endmacro %}
+
+{% macro payment_summary(payer, expense_description, group_name, guest_name, amount, currency, conversion_rate) %}
+<div class="payment-summary">
+    <div class="payment-summary__amount">
+        <p class="payment-summary__amount-label">Amount</p>
+        <p class="amount amount--lg amount--neutral tabular-nums">{{ currency }} {{ (amount * conversion_rate)|round(2) }}</p>
+    </div>
+    {% if payer %}
+    <div class="pay-requester">
+        {{ initials_avatar(payer.name, 'md') }}
+        <div>
+            <p class="text-caption">Pay to</p>
+            <strong>{{ payer.name }}</strong>
+        </div>
+    </div>
+    {% endif %}
+    <dl class="payment-details">
+        <div class="payment-detail-row">
+            <dt>Reason</dt>
+            <dd>{{ expense_description or 'Shared expense' }}</dd>
+        </div>
+        {% if group_name %}
+        <div class="payment-detail-row">
+            <dt>Group</dt>
+            <dd>{{ group_name }}</dd>
+        </div>
+        {% endif %}
+        {% if guest_name %}
+        <div class="payment-detail-row">
+            <dt>From</dt>
+            <dd>{{ guest_name }}</dd>
+        </div>
+        {% endif %}
+    </dl>
+</div>
+{% endmacro %}
+
+{% macro payment_state_panel(state, title, message) %}
+<div class="payment-state-panel payment-state-panel--{{ state }}" role="status">
+    {% if state == 'success' %}
+    <p class="payment-state-panel__icon" aria-hidden="true">✓</p>
+    {% elif state == 'failed' %}
+    <p class="payment-state-panel__icon payment-state-panel__icon--warn" aria-hidden="true">!</p>
+    {% elif state == 'expired' %}
+    <p class="payment-state-panel__icon payment-state-panel__icon--muted" aria-hidden="true">—</p>
+    {% elif state == 'processing' %}
+    <p class="payment-state-panel__icon payment-state-panel__icon--processing" aria-hidden="true">…</p>
+    {% endif %}
+    <h2 class="payment-state-panel__title">{{ title }}</h2>
+    <p class="payment-state-panel__message text-caption">{{ message }}</p>
+</div>
+{% endmacro %}
+
+{% macro payment_methods(stripe_enabled, khalti_ok, khalti_enabled, online_ok, token, amount, currency, conversion_rate) %}
+<div class="payment-methods">
+    <p class="payment-methods__heading">Choose how to pay</p>
+    <div class="payment-actions form-stack">
+        {% if stripe_enabled %}
+        <form method="POST" action="{{ url_for('guest_pay_stripe', token=token) }}">
+            <button type="submit" class="btn-primary btn-block payment-action-btn payment-action-btn--card">
+                Pay with card
+            </button>
+        </form>
+        {% endif %}
+        {% if khalti_ok %}
+        <form method="POST" action="{{ url_for('guest_pay_now', token=token) }}">
+            <button type="submit" class="btn-primary btn-block payment-action-btn payment-action-btn--khalti">
+                Pay with Khalti
+            </button>
+        </form>
+        {% elif khalti_enabled and not khalti_ok %}
+        <p class="payment-methods__note text-caption">
+            Khalti requires at least {{ currency }} 10 per payment — use cash or bank transfer for smaller amounts.
+        </p>
+        {% endif %}
+        <form method="POST" action="{{ url_for('guest_pay_mark_paid', token=token) }}">
+            <button type="submit" class="btn-{% if online_ok %}secondary{% else %}primary{% endif %} btn-block payment-action-btn payment-action-btn--manual">
+                I paid cash / bank transfer
+            </button>
+        </form>
+    </div>
+    {% if stripe_enabled or khalti_ok %}
+    <p class="payment-methods__providers text-caption">
+        {% if stripe_enabled %}Card{% endif %}{% if stripe_enabled and khalti_ok %} · {% endif %}{% if khalti_ok %}Khalti{% endif %} · Cash / bank
+    </p>
+    {% elif not online_ok %}
+    <p class="payment-methods__note text-caption">
+        Online checkout isn't available here — pay {{ currency }} {{ (amount * conversion_rate)|round(2) }} directly, then tap <strong>I paid cash / bank transfer</strong>.
+    </p>
+    {% endif %}
+</div>
+{% endmacro %}

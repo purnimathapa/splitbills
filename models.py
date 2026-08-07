@@ -2,6 +2,9 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from datetime import datetime
 
+from group_permissions import ROLE_MEMBER
+from money import MONEY_COLUMN, PERCENT_COLUMN, QUANTITY_COLUMN
+
 db = SQLAlchemy()
 
 # Expense split strategies (stored on expenses.split_type)
@@ -56,6 +59,7 @@ class TripMember(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     trip_id = db.Column(db.Integer, db.ForeignKey("trips.id"))
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    role = db.Column(db.String(20), nullable=False, default=ROLE_MEMBER)
 
 
 class Expense(db.Model):
@@ -66,21 +70,40 @@ class Expense(db.Model):
     paid_by = db.Column(db.Integer, db.ForeignKey("users.id"))
     category = db.Column(db.String(100))
     description = db.Column(db.String(255))
-    amount = db.Column(db.Float)
+    amount = db.Column(MONEY_COLUMN)
     remarks = db.Column(db.String(255))
     split_type = db.Column(
         db.String(20),
         nullable=False,
         default=SPLIT_TYPE_EQUAL,
     )
-    tax_tip_amount = db.Column(db.Float, default=0.0)
+    tax_tip_amount = db.Column(MONEY_COLUMN, default=0)
     receipt_image_url = db.Column(db.String(512), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_recurring = db.Column(db.Boolean, nullable=False, default=False)
     recurrence_interval = db.Column(db.String(20), nullable=True)
     next_occurrence_date = db.Column(db.Date, nullable=True)
+    recurrence_end_date = db.Column(db.Date, nullable=True)
+    recurring_template_id = db.Column(
+        db.Integer,
+        db.ForeignKey("expenses.id"),
+        nullable=True,
+    )
+    recurrence_occurrence_date = db.Column(db.Date, nullable=True)
     self_service_items = db.Column(db.Boolean, nullable=False, default=False)
     claims_finalized_at = db.Column(db.DateTime, nullable=True)
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "recurring_template_id",
+            "recurrence_occurrence_date",
+            name="uq_expense_recurring_occurrence",
+        ),
+        db.Index("idx_expenses_trip_created", "trip_id", "created_at"),
+        db.Index("idx_expenses_paid_by_created", "paid_by", "created_at"),
+        db.Index("idx_expenses_created_at", "created_at"),
+        db.Index("idx_expenses_is_recurring", "is_recurring"),
+    )
 
     payer = db.relationship("User", foreign_keys=[paid_by])
     splits = db.relationship(
@@ -147,9 +170,9 @@ class ExpenseSplit(db.Model):
         nullable=False,
     )
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    amount_owed = db.Column(db.Float, nullable=False)
-    percentage = db.Column(db.Float, nullable=True)
-    shares = db.Column(db.Float, nullable=True)
+    amount_owed = db.Column(MONEY_COLUMN, nullable=False)
+    percentage = db.Column(PERCENT_COLUMN, nullable=True)
+    shares = db.Column(PERCENT_COLUMN, nullable=True)
 
     expense = db.relationship("Expense", back_populates="splits")
     user = db.relationship("User")
@@ -165,8 +188,8 @@ class ExpenseItem(db.Model):
         nullable=False,
     )
     name = db.Column(db.String(255), nullable=False)
-    price = db.Column(db.Float, nullable=False)
-    quantity = db.Column(db.Float, nullable=False, default=1.0)
+    price = db.Column(MONEY_COLUMN, nullable=False)
+    quantity = db.Column(QUANTITY_COLUMN, nullable=False, default=1)
 
     expense = db.relationship("Expense", back_populates="items")
     assignments = db.relationship(
@@ -213,6 +236,8 @@ class ExpensePaymentLink(db.Model):
             name="uq_expense_payment_links_expense_user",
         ),
         db.UniqueConstraint("link_uuid", name="uq_expense_payment_links_uuid"),
+        db.Index("idx_payment_links_user_status", "user_id", "status"),
+        db.Index("idx_payment_links_expense_status", "expense_id", "status"),
     )
 
     id = db.Column(db.Integer, primary_key=True)
@@ -223,7 +248,7 @@ class ExpensePaymentLink(db.Model):
         nullable=False,
     )
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    amount_owed = db.Column(db.Float, nullable=False)
+    amount_owed = db.Column(MONEY_COLUMN, nullable=False)
     status = db.Column(db.String(20), nullable=False, default=PAYMENT_STATUS_PENDING)
     paid_at = db.Column(db.DateTime, nullable=True)
     payment_provider = db.Column(db.String(30), nullable=True)
@@ -292,18 +317,34 @@ class PaymentReminderLog(db.Model):
 NOTIFICATION_PAYMENT_RECEIVED = "payment_received"
 NOTIFICATION_TRIP_JOIN = "trip_join"
 NOTIFICATION_REMINDER_SENT = "reminder_sent"
+NOTIFICATION_GROUP_ADDED = "group_added"
+NOTIFICATION_EXPENSE_ADDED = "expense_added"
+NOTIFICATION_EXPENSE_UPDATED = "expense_updated"
+NOTIFICATION_SETTLEMENT_REQUESTED = "settlement_requested"
+NOTIFICATION_SETTLEMENT_COMPLETED = "settlement_completed"
+NOTIFICATION_RECURRING_GENERATED = "recurring_generated"
 
 
 class Notification(db.Model):
     """In-app alerts for the notification bell."""
 
     __tablename__ = "notifications"
+    __table_args__ = (
+        db.UniqueConstraint(
+            "user_id",
+            "dedupe_key",
+            name="uq_notifications_user_dedupe",
+        ),
+        db.Index("idx_notifications_user_created", "user_id", "created_at"),
+        db.Index("idx_notifications_user_unread", "user_id", "read_at"),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     kind = db.Column(db.String(40), nullable=False, default=NOTIFICATION_PAYMENT_RECEIVED)
     message = db.Column(db.String(512), nullable=False)
     href = db.Column(db.String(512), nullable=True)
+    dedupe_key = db.Column(db.String(128), nullable=True)
     read_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 

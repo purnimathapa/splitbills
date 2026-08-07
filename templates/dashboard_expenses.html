@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros/empty_state.html" import empty_state %}
 {% from "macros/ui.html" import user_avatar %}
 
 {% block content %}
@@ -74,7 +75,7 @@
                     <strong>{{ currency }} {{ (e.amount * conversion_rate)|round(2) }}</strong>
                 </a>
                 {% else %}
-                <div class="empty-state"><p class="text-caption">No expenses in this group.</p></div>
+                {{ empty_state('🧾', 'Your group has no expenses yet.', 'Add a shared bill to start splitting costs.', url_for('group_details', trip_id=t.trip.id), 'Open group', compact=true) }}
                 {% endfor %}
             </div>
         </section>

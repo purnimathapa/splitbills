@@ -1,5 +1,7 @@
 {% extends "base.html" %}
+{% from "macros/empty_state.html" import state_alert %}
 {% from "macros/ui.html" import initials_avatar %}
+{% from "macros/payment.html" import payment_status_badge, payment_state_panel, payment_summary %}
 
 {% block body_attrs %}{% if toast_msg %} data-toast-success="{{ toast_msg|e }}"{% endif %}{% endblock %}
 
@@ -9,8 +11,7 @@
     <div class="card pay-card claim-card claim-card--guest">
 
         {% if invalid %}
-            <h1>Invalid link</h1>
-            <p class="text-caption">This split link is invalid or has expired.</p>
+            {{ state_alert('error', 'Link not found', 'This split link is invalid or has expired.') }}
             <a href="{{ url_for('home') }}" class="btn-secondary btn-block">Go home</a>
         {% else %}
 
@@ -20,33 +21,17 @@
             </div>
 
             {% if payment_confirmed %}
-            <div class="empty-state">
-                <p class="balance-card__amount--settled">✓</p>
-                <h2 class="text-success">Paid</h2>
-                <p class="text-caption">Thanks — you're all set for <strong>{{ expense.description }}</strong>.</p>
-            </div>
+            {{ payment_status_badge('success', 'Payment successful') }}
+            {{ payment_state_panel('success', 'Payment successful', 'Thanks — you\'re all set for ' ~ expense.description ~ '.') }}
 
             {% elif finalized and show_pay %}
-            <h1>Your share</h1>
-            <p class="text-caption">{{ expense.description }}</p>
-            <div class="guest-share-card">
-                <p class="guest-share-card__label">Total</p>
-                <p class="pay-amount wallet-hero__amount tabular-nums">{{ currency }} {{ (link.amount_owed * conversion_rate)|round(2) }}</p>
-            </div>
-            {% if payer %}
-            <div class="pay-requester">
-                {{ initials_avatar(payer.name, 'md') }}
-                <div>
-                    <p class="text-caption">Pay to</p>
-                    <strong>{{ payer.name }}</strong>
-                </div>
-            </div>
-            {% endif %}
+            {{ payment_status_badge('pending', 'Payment due') }}
+            {{ payment_summary(payer, expense.description, trip.trip_name if trip else none, guest.name, link.amount_owed, currency, conversion_rate) }}
             {% include "partials/guest_pay_buttons.html" %}
 
             {% elif finalized %}
-            <div class="empty-state">
-                <h2>All set</h2>
+            <div class="empty-state empty-state--rich empty-state--compact">
+                <h2 class="empty-state__title">All set</h2>
                 {% if link.amount_owed and link.amount_owed > 0 %}
                 <p class="pay-amount wallet-hero__amount tabular-nums">{{ currency }} {{ (link.amount_owed * conversion_rate)|round(2) }}</p>
                 {% else %}

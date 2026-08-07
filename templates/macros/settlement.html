@@ -1,0 +1,74 @@
+{# Human-readable settlement copy and rows #}
+
+{% macro balance_sentence(name, net, currency, conversion_rate, is_you=false) %}
+{% set amt = (net|abs * conversion_rate)|round(2) %}
+{% if net > 0.01 %}
+<p class="settlement-balance-line settlement-balance-line--owed">
+    {% if is_you %}You are owed{% else %}<strong>{{ name }}</strong> is owed{% endif %}
+    <span class="amount amount--receivable">{{ currency }} {{ amt }}</span>
+    {% if not is_you %}<span class="text-caption"> in this group</span>{% endif %}
+</p>
+{% elif net < -0.01 %}
+<p class="settlement-balance-line settlement-balance-line--owing">
+    {% if is_you %}You owe{% else %}<strong>{{ name }}</strong> owes{% endif %}
+    <span class="amount amount--owed">{{ currency }} {{ amt }}</span>
+    <span class="text-caption"> in this group</span>
+</p>
+{% else %}
+<p class="settlement-balance-line settlement-balance-line--settled">
+    {% if is_you %}You are{% else %}<strong>{{ name }}</strong> is{% endif %} settled up
+</p>
+{% endif %}
+{% endmacro %}
+
+{% macro payment_row(from_name, to_name, amount, currency, conversion_rate, viewer_name, pay_url=none, status='pending') %}
+{% set amt = (amount * conversion_rate)|round(2) %}
+{% set viewer_pays = from_name == viewer_name %}
+{% set viewer_receives = to_name == viewer_name %}
+<div class="settlement-payment-row {% if viewer_pays %}settlement-payment-row--you-pay{% elif viewer_receives %}settlement-payment-row--you-get{% endif %}">
+    <div class="settlement-payment-row__main">
+        {% if viewer_pays %}
+        <p class="settlement-payment-row__sentence">You owe <strong>{{ to_name }}</strong></p>
+        {% elif viewer_receives %}
+        <p class="settlement-payment-row__sentence"><strong>{{ from_name }}</strong> owes you</p>
+        {% else %}
+        <p class="settlement-payment-row__sentence">
+            <strong>{{ from_name }}</strong>
+            <span class="settlement-payment-row__arrow" aria-hidden="true">→</span>
+            <strong>{{ to_name }}</strong>
+        </p>
+        {% endif %}
+        <p class="settlement-payment-row__amount amount {% if viewer_pays %}amount--owed{% elif viewer_receives %}amount--receivable{% else %}amount--neutral{% endif %}">
+            {{ currency }} {{ amt }}
+        </p>
+    </div>
+    <div class="settlement-payment-row__meta">
+        {% if status == 'paid' %}
+        <span class="badge badge-success">Paid</span>
+        {% elif status == 'pending' %}
+        <span class="badge badge-neutral">Pending</span>
+        {% else %}
+        <span class="badge badge-neutral">Suggested</span>
+        {% endif %}
+        {% if viewer_pays and pay_url %}
+        <a href="{{ pay_url }}" class="btn-primary btn-sm">Pay now</a>
+        {% elif viewer_receives and pay_url %}
+        <button type="button" class="btn-secondary btn-sm copy-pay-link" data-url="{{ pay_url }}" data-copy-label="Link copied">Copy payment link</button>
+        {% endif %}
+    </div>
+</div>
+{% endmacro %}
+
+{% macro simplification_note(non_zero_count, payment_count) %}
+{% if payment_count and non_zero_count > payment_count %}
+<p class="settlement-simplify-note">
+    Everyone's expenses boil down to <strong>{{ non_zero_count }}</strong> non-zero balance{% if non_zero_count != 1 %}s{% endif %}.
+    These <strong>{{ payment_count }}</strong> payment{% if payment_count != 1 %}s{% endif %} are the simplest way to settle the group —
+    you don't need to track every individual expense debt.
+</p>
+{% elif payment_count %}
+<p class="settlement-simplify-note">
+    Make the payment{% if payment_count != 1 %}s{% endif %} below and everyone in this group will be settled up.
+</p>
+{% endif %}
+{% endmacro %}

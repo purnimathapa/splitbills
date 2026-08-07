@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import calendar
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
+
+from decimal import Decimal
+
+from sqlalchemy.exc import IntegrityError
 
 from models import (
     RECURRENCE_INTERVALS,
@@ -19,8 +23,21 @@ from models import (
     db,
 )
 from payment_links import create_expense_payment_links
+from money import quantize_money
+from notifications import (
+    notify_recurring_expense_generated,
+    notify_settlement_links_created,
+)
 
 logger = logging.getLogger(__name__)
+
+# Cap catch-up so a long-idle template cannot loop forever in one run.
+MAX_CATCHUP_PER_RUN = 52
+
+
+def utc_today() -> date:
+    """Calendar date in UTC (matches scheduler cron timezone)."""
+    return datetime.now(timezone.utc).date()
 
 
 def add_months(d: date, months: int = 1) -> date:
@@ -45,15 +62,48 @@ def initial_next_occurrence(from_day: date, interval: str) -> date:
     return advance_recurrence(from_day, interval)
 
 
-def splits_owed_by_user(expense: Expense) -> dict[int, float]:
+def is_template_active(template: Expense, as_of: date) -> bool:
+    """Recurring templates are active when flagged and not past their end date."""
+    if not template.is_recurring or not template.next_occurrence_date:
+        return False
+    if template.recurrence_end_date and template.next_occurrence_date > template.recurrence_end_date:
+        return False
+    return True
+
+
+def deactivate_template(template: Expense) -> None:
+    """Stop future generation for a template."""
+    template.is_recurring = False
+    template.next_occurrence_date = None
+
+
+def occurrence_within_end(template: Expense, occurrence: date) -> bool:
+    end = template.recurrence_end_date
+    return end is None or occurrence <= end
+
+
+def splits_owed_by_user(expense: Expense) -> dict[int, Decimal]:
     return {
-        split.user_id: float(split.amount_owed or 0)
+        split.user_id: quantize_money(split.amount_owed or 0)
         for split in expense.splits
-        if (split.amount_owed or 0) > 0
+        if quantize_money(split.amount_owed or 0) > 0
     }
 
 
-def clone_expense_from_template(template: Expense) -> Expense:
+def instance_exists_for_occurrence(template_id: int, occurrence: date) -> bool:
+    return (
+        Expense.query.filter_by(
+            recurring_template_id=template_id,
+            recurrence_occurrence_date=occurrence,
+        ).first()
+        is not None
+    )
+
+
+def clone_expense_from_template(
+    template: Expense,
+    occurrence: date,
+) -> Expense:
     """Create a one-off expense instance copied from a recurring template."""
     instance = Expense(
         trip_id=template.trip_id,
@@ -68,6 +118,9 @@ def clone_expense_from_template(template: Expense) -> Expense:
         is_recurring=False,
         recurrence_interval=None,
         next_occurrence_date=None,
+        recurrence_end_date=None,
+        recurring_template_id=template.id,
+        recurrence_occurrence_date=occurrence,
         created_at=datetime.utcnow(),
     )
     db.session.add(instance)
@@ -120,7 +173,9 @@ def find_due_recurring_templates(as_of: date) -> list[Expense]:
 
 def process_recurring_template(template: Expense, as_of: date) -> int:
     """Create instances for each missed occurrence up to as_of. Returns count created."""
-    if not template.is_recurring or not template.next_occurrence_date:
+    if not is_template_active(template, as_of):
+        if template.is_recurring and template.recurrence_end_date:
+            deactivate_template(template)
         return 0
     if template.recurrence_interval not in RECURRENCE_INTERVALS:
         logger.warning(
@@ -131,27 +186,84 @@ def process_recurring_template(template: Expense, as_of: date) -> int:
         return 0
 
     created = 0
-    while template.next_occurrence_date and template.next_occurrence_date <= as_of:
-        instance = clone_expense_from_template(template)
-        owed = splits_owed_by_user(instance)
-        create_expense_payment_links(
-            instance,
-            owed,
-            db.session,
-            ExpensePaymentLink,
-        )
+    iterations = 0
+    while (
+        template.next_occurrence_date
+        and template.next_occurrence_date <= as_of
+        and iterations < MAX_CATCHUP_PER_RUN
+    ):
+        iterations += 1
+        occurrence = template.next_occurrence_date
+
+        if not occurrence_within_end(template, occurrence):
+            deactivate_template(template)
+            break
+
+        if instance_exists_for_occurrence(template.id, occurrence):
+            logger.info(
+                "Recurring template_id=%s occurrence %s already exists; advancing",
+                template.id,
+                occurrence,
+            )
+            template.next_occurrence_date = advance_recurrence(
+                occurrence,
+                template.recurrence_interval,
+            )
+            continue
+
+        try:
+            with db.session.begin_nested():
+                instance = clone_expense_from_template(template, occurrence)
+                owed = splits_owed_by_user(instance)
+                created_links = create_expense_payment_links(
+                    instance,
+                    owed,
+                    db.session,
+                    ExpensePaymentLink,
+                )
+                notify_recurring_expense_generated(instance, template)
+                notify_settlement_links_created(created_links)
+        except IntegrityError:
+            logger.info(
+                "Duplicate recurring instance for template_id=%s occurrence %s",
+                template.id,
+                occurrence,
+            )
+            template.next_occurrence_date = advance_recurrence(
+                occurrence,
+                template.recurrence_interval,
+            )
+            continue
+
         template.next_occurrence_date = advance_recurrence(
-            template.next_occurrence_date,
+            occurrence,
             template.recurrence_interval,
         )
         created += 1
+
+        if (
+            template.next_occurrence_date
+            and template.recurrence_end_date
+            and template.next_occurrence_date > template.recurrence_end_date
+        ):
+            deactivate_template(template)
+            break
+
+    if iterations >= MAX_CATCHUP_PER_RUN:
+        logger.warning(
+            "Recurring template_id=%s hit catch-up cap (%s); remaining dates deferred",
+            template.id,
+            MAX_CATCHUP_PER_RUN,
+        )
+
     return created
 
 
-def run_recurring_expense_job(app) -> dict:
+def run_recurring_expense_job(app, as_of: date | None = None) -> dict:
     """Entry point for the daily scheduler."""
     stats = {"due_templates": 0, "created": 0, "errors": 0}
-    as_of = date.today()
+    if as_of is None:
+        as_of = utc_today()
 
     with app.app_context():
         templates = find_due_recurring_templates(as_of)
@@ -179,15 +291,28 @@ def run_recurring_expense_job(app) -> dict:
     return stats
 
 
-def parse_recurrence_from_form(form) -> tuple[bool, str | None, date | None]:
+def parse_recurrence_end_date(raw: str | None) -> date | None:
+    if not raw or not str(raw).strip():
+        return None
+    return datetime.strptime(str(raw).strip(), "%Y-%m-%d").date()
+
+
+def parse_recurrence_from_form(form) -> tuple[bool, str | None, date | None, date | None]:
     """Read recurring fields from an add-expense POST."""
     is_recurring = form.get("is_recurring") == "on"
     if not is_recurring:
-        return False, None, None
+        return False, None, None, None
 
     interval = (form.get("recurrence_interval") or RECURRENCE_MONTHLY).strip().lower()
     if interval not in RECURRENCE_INTERVALS:
         raise ValueError("Choose weekly or monthly recurrence.")
 
-    next_date = initial_next_occurrence(date.today(), interval)
-    return True, interval, next_date
+    start_day = utc_today()
+    next_date = initial_next_occurrence(start_day, interval)
+    end_date = parse_recurrence_end_date(form.get("recurrence_end_date"))
+    if end_date and end_date < start_day:
+        raise ValueError("Recurrence end date cannot be before today.")
+    if end_date and next_date > end_date:
+        raise ValueError("First recurrence would fall after the end date.")
+
+    return True, interval, next_date, end_date

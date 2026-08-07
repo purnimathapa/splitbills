@@ -1,21 +1,29 @@
 {% extends "base.html" %}
+{% from "macros/payment.html" import payment_status_badge, payment_state_panel, payment_summary, payment_methods %}
 
 {% block content %}
 <div class="pay-page">
-    <div class="card pay-card">
+    <div class="card pay-card payment-card">
         <div class="pay-card__trust">
             <span class="app-nav__mark">SB</span>
-            <span class="text-caption">Khalti · local test mode</span>
+            <span class="text-caption">Test mode · local development only</span>
         </div>
-        <h1>Test Khalti checkout</h1>
+
+        {{ payment_status_badge('pending', 'Payment due') }}
+
+        <h1 class="payment-card__title">Test checkout</h1>
         <p class="text-caption">No real charge — for development on this computer only.</p>
-        <p class="pay-amount wallet-hero__amount tabular-nums">{{ currency }} {{ (link.amount_owed * conversion_rate)|round(2) }}</p>
-        <p class="text-caption">{{ expense.description }}</p>
-        <form method="POST" class="form-stack">
-            <button type="submit" class="btn-primary btn-block">Confirm test payment</button>
+
+        {{ payment_summary(none, expense.description, none, guest.name if guest else none, link.amount_owed, currency, conversion_rate) }}
+
+        <form method="POST" class="payment-actions form-stack">
+            <button type="submit" class="btn-primary btn-block payment-action-btn">Confirm test payment</button>
             <a href="{{ url_for('guest_pay', token=token) }}" class="btn-secondary btn-block">Cancel</a>
         </form>
-        <p class="text-small">Add <code>KHALTI_SECRET_KEY</code> in <code>.env</code> for real Khalti (see <code>.env.example</code>).</p>
+
+        <p class="payment-methods__note text-caption">
+            Configure Khalti in your environment for real payments in production.
+        </p>
     </div>
 </div>
 {% endblock %}

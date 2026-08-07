@@ -1,13 +1,7 @@
-<div class="form-stack guest-pay-actions">
-    {% if stripe_enabled %}
-    <form method="POST" action="{{ url_for('guest_pay_stripe', token=token) }}">
-        <button type="submit" class="btn-primary btn-block btn-stripe">Pay with card</button>
-    </form>
-    {% endif %}
-    <form method="POST" action="{{ url_for('guest_pay_now', token=token) }}">
-        <button type="submit" class="btn-primary btn-block btn-khalti">Pay with Khalti</button>
-    </form>
-    <form method="POST" action="{{ url_for('guest_pay_mark_paid', token=token) }}">
-        <button type="submit" class="btn-secondary btn-block">I paid cash / bank transfer</button>
-    </form>
+{% from "macros/payment.html" import payment_methods %}
+<div class="payment-methods payment-methods--inline">
+    <p class="payment-methods__heading">Pay your share</p>
+    {% set khalti_ok = khalti_enabled and (link.amount_owed * conversion_rate) >= 10 %}
+    {% set online_ok = stripe_enabled or khalti_ok %}
+    {{ payment_methods(stripe_enabled, khalti_ok, khalti_enabled, online_ok, token, link.amount_owed, currency, conversion_rate) }}
 </div>

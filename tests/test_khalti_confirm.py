@@ -15,7 +15,7 @@ class KhaltiConfirmTests(unittest.TestCase):
         order = khalti_purchase_order_id(42)
         self.assertEqual(parse_purchase_order_link_id(order), 42)
 
-    @patch("khalti_pay.lookup_khalti_payment")
+    @patch("services.payments.khalti.lookup_payment")
     def test_confirm_success(self, mock_lookup):
         mock_lookup.return_value = {
             "status": "Completed",
@@ -32,7 +32,7 @@ class KhaltiConfirmTests(unittest.TestCase):
         self.assertEqual(msg, "confirmed")
         self.assertIsNotNone(data)
 
-    @patch("khalti_pay.lookup_khalti_payment")
+    @patch("services.payments.khalti.lookup_payment")
     def test_confirm_rejects_amount_mismatch(self, mock_lookup):
         mock_lookup.return_value = {
             "status": "Completed",

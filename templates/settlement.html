@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros/settlement.html" import balance_sentence, payment_row, simplification_note %}
 {% from "macros/settle_suggestion.html" import settle_suggestion_list %}
 {% from "macros/empty_state.html" import empty_state %}
 
@@ -6,30 +7,58 @@
 
 <div class="app-layout">
     {% include "partials/app_nav.html" %}
-    <main class="app-main">
+    <main class="app-main settlement-page">
 
-        <header class="page-head">
+        <header class="settlement-page__header">
             <div>
-                <h1>Settlement</h1>
-                <p class="text-caption">{{ trip.trip_name }}</p>
+                <p class="type-overline">Settle up</p>
+                <h1>{{ trip.trip_name }}</h1>
+                <p class="text-caption">Who owes whom in this group, and the simplest payments to clear balances.</p>
             </div>
-            <a href="{{ url_for('group_details', trip_id=trip.id) }}" class="btn-secondary">← Group</a>
+            <a href="{{ url_for('group_details', trip_id=trip.id) }}" class="btn-secondary btn-sm">← Group</a>
         </header>
 
         {{ settle_suggestion_list(settle_suggestions) }}
 
-        <div class="card card--flush">
-            {% if settlements %}
-                {% for settlement in settlements %}
-                <div class="list-row">
-                    <span><strong>{{ settlement.from }}</strong> pays <strong>{{ settlement.to }}</strong></span>
-                    <strong>{{ currency }} {{ (settlement.amount * conversion_rate)|round(2) }}</strong>
+        {% if balance_rows %}
+        <section class="settlement-section">
+            <h2 class="settlement-section__title">Group balances</h2>
+            <p class="text-caption settlement-section__lead">Net position after all expenses in this group.</p>
+            <div class="card card--flush settlement-balance-list">
+                {% for row in balance_rows %}
+                <div class="settlement-balance-row {% if row.is_you %}settlement-balance-row--you{% endif %}">
+                    {{ balance_sentence(row.name, row.net, currency, conversion_rate, row.is_you) }}
                 </div>
                 {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        <section class="settlement-section">
+            <h2 class="settlement-section__title">Suggested payments</h2>
+            {{ simplification_note(non_zero_count, settlement_payments|length) }}
+
+            {% if settlement_payments %}
+            <div class="card card--flush settlement-payment-list">
+                {% for payment in settlement_payments %}
+                {{ payment_row(
+                    payment.from_name,
+                    payment.to_name,
+                    payment.amount,
+                    currency,
+                    conversion_rate,
+                    current_user.name,
+                    payment.pay_url,
+                    payment.status
+                ) }}
+                {% endfor %}
+            </div>
             {% else %}
-                {{ empty_state('🎉', "You're all settled up!", 'No payments are needed in this group. Treat yourselves to something nice.') }}
+            <div class="card">
+                {{ empty_state('✓', 'No pending settlements', 'Everyone in this group is square — no payments needed right now.', url_for('group_details', trip_id=trip.id), 'Back to group') }}
+            </div>
             {% endif %}
-        </div>
+        </section>
 
     </main>
 </div>

@@ -16,3 +16,13 @@
     {{ user_initials(name) }}
 </div>
 {%- endmacro %}
+
+{% macro role_badge(role) -%}
+{% set r = (role or 'member')|lower %}
+<span class="role-badge role-badge--{{ r }}">
+    {%- if r == 'owner' -%}Owner
+    {%- elif r == 'admin' -%}Admin
+    {%- else -%}Member
+    {%- endif -%}
+</span>
+{%- endmacro %}

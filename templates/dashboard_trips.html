@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros/empty_state.html" import empty_state %}
+{% from "macros/empty_state.html" import empty_state, inline_empty %}
 
 {% block content %}
 
@@ -57,7 +57,7 @@
                     </a>
                     {% endfor %}
                 {% else %}
-                    <div class="empty-state"><p class="text-caption">No closed groups.</p></div>
+                    {{ inline_empty('No closed groups.') }}
                 {% endif %}
             </div>
         </section>

@@ -16,6 +16,9 @@
 
         <div class="card">
             {% include "partials/add_expense_form.html" %}
+            {% if ocr_available is defined and not ocr_available %}
+            <p class="text-caption text-warn expense-form__ocr-hint">Receipt scan requires Tesseract OCR. You can still add items manually.</p>
+            {% endif %}
         </div>
 
     </main>

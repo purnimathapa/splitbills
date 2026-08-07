@@ -2,9 +2,9 @@
 {% set sheet_id = modal_id|default('add-expense-sheet') %}
 <button type="button" class="fab" data-open-sheet="{{ sheet_id }}" aria-label="Add expense">+</button>
 
-<div class="modal-sheet" id="{{ sheet_id }}" hidden>
-    <div class="modal-sheet__backdrop" data-close-sheet></div>
-    <div class="modal-sheet__panel" role="dialog" aria-labelledby="{{ sheet_id }}-title">
+<div class="modal-sheet" id="{{ sheet_id }}" hidden aria-hidden="true">
+    <div class="modal-sheet__backdrop" data-close-sheet tabindex="-1" aria-hidden="true"></div>
+    <div class="modal-sheet__panel" role="dialog" aria-modal="true" aria-labelledby="{{ sheet_id }}-title">
         <div class="modal-sheet__handle" aria-hidden="true"></div>
         <div class="modal-sheet__head">
             <h2 id="{{ sheet_id }}-title">Add expense</h2>

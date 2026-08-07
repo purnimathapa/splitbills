@@ -3,6 +3,13 @@
 
     function toast(message, type) {
         if (typeof Toastify === 'undefined') return;
+        const announcer = document.getElementById('sr-announcer');
+        if (announcer) {
+            announcer.textContent = '';
+            window.setTimeout(function () {
+                announcer.textContent = message;
+            }, 50);
+        }
         const styles = {
             success: 'linear-gradient(135deg, #059669, #047857)',
             error: 'linear-gradient(135deg, #dc2626, #b91c1c)',
@@ -60,52 +67,95 @@
         } catch (e) { /* ignore */ }
     }
 
-    function initModal(modalId) {
-        const modal = document.getElementById(modalId);
-        if (!modal) return;
-        const openers = document.querySelectorAll('[data-open-modal="' + modalId + '"]');
-        const closeEls = modal.querySelectorAll('[data-close-modal]');
+    function initMainLandmark() {
+        const main = document.querySelector('main');
+        if (main && !main.id) {
+            main.id = 'main-content';
+        }
+        if (main && !main.hasAttribute('tabindex')) {
+            main.setAttribute('tabindex', '-1');
+        }
+    }
+
+    function getFocusables(container) {
+        if (!container) return [];
+        return Array.from(container.querySelectorAll(
+            'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )).filter(function (el) {
+            return !el.hidden && el.getAttribute('aria-hidden') !== 'true';
+        });
+    }
+
+    function trapFocus(container, event) {
+        if (event.key !== 'Tab') return;
+        const focusables = getFocusables(container);
+        if (!focusables.length) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    }
+
+    function initOverlay(root, options) {
+        const openers = document.querySelectorAll('[data-open-' + options.kind + '="' + options.id + '"]');
+        const closeEls = root.querySelectorAll('[data-close-' + options.kind + ']');
+        const panel = root.querySelector('[role="dialog"]') || root.querySelector('.sw-modal__dialog') || root.querySelector('.modal-sheet__panel');
+        let lastFocused = null;
 
         function open() {
-            modal.hidden = false;
-            requestAnimationFrame(function () { modal.classList.add('is-open'); });
+            lastFocused = document.activeElement;
+            root.hidden = false;
+            root.setAttribute('aria-hidden', 'false');
+            if (panel) panel.setAttribute('aria-modal', 'true');
+            requestAnimationFrame(function () { root.classList.add('is-open'); });
             document.body.classList.add('modal-open');
+            const focusables = getFocusables(panel || root);
+            const target = focusables.find(function (el) {
+                return el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA';
+            }) || focusables[0];
+            if (target) target.focus();
         }
+
         function close() {
-            modal.classList.remove('is-open');
+            root.classList.remove('is-open');
             document.body.classList.remove('modal-open');
-            setTimeout(function () { modal.hidden = true; }, 220);
+            root.setAttribute('aria-hidden', 'true');
+            setTimeout(function () {
+                root.hidden = true;
+                if (lastFocused && typeof lastFocused.focus === 'function') {
+                    lastFocused.focus();
+                }
+            }, options.closeDelay || 220);
         }
 
         openers.forEach(function (el) { el.addEventListener('click', open); });
         closeEls.forEach(function (el) { el.addEventListener('click', close); });
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape' && modal.classList.contains('is-open')) close();
+        root.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && root.classList.contains('is-open')) {
+                e.preventDefault();
+                close();
+            }
+            if (root.classList.contains('is-open')) {
+                trapFocus(panel || root, e);
+            }
         });
+    }
+
+    function initModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+        initOverlay(modal, { kind: 'modal', id: modalId, closeDelay: 220 });
     }
 
     function initSheet(sheetId) {
         const sheet = document.getElementById(sheetId);
         if (!sheet) return;
-        const openers = document.querySelectorAll('[data-open-sheet="' + sheetId + '"]');
-        const closeEls = sheet.querySelectorAll('[data-close-sheet]');
-
-        function open() {
-            sheet.hidden = false;
-            requestAnimationFrame(function () { sheet.classList.add('is-open'); });
-            document.body.classList.add('modal-open');
-        }
-        function close() {
-            sheet.classList.remove('is-open');
-            document.body.classList.remove('modal-open');
-            setTimeout(function () { sheet.hidden = true; }, 280);
-        }
-
-        openers.forEach(function (el) { el.addEventListener('click', open); });
-        closeEls.forEach(function (el) { el.addEventListener('click', close); });
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape' && sheet.classList.contains('is-open')) close();
-        });
+        initOverlay(sheet, { kind: 'sheet', id: sheetId, closeDelay: 280 });
     }
 
     function initCopyPayLinks() {
@@ -116,6 +166,8 @@
                 navigator.clipboard.writeText(url).then(function () {
                     const label = button.getAttribute('data-copy-label') || 'Link copied';
                     toast(label, 'success');
+                }).catch(function () {
+                    toast('Could not copy the link. Please try again.', 'error');
                 });
             });
         });
@@ -142,15 +194,18 @@
                 return;
             }
             wrap.classList.add('is-loading');
+            wrap.setAttribute('aria-busy', 'true');
             requestAnimationFrame(function () {
                 setTimeout(function () {
                     wrap.classList.remove('is-loading');
+                    wrap.removeAttribute('aria-busy');
                 }, 120);
             });
         });
         window.addEventListener('load', function () {
             document.querySelectorAll('[data-chart-skeleton].is-loading').forEach(function (el) {
                 el.classList.remove('is-loading');
+                el.removeAttribute('aria-busy');
             });
         });
     }
@@ -158,8 +213,10 @@
     function initFeedShell() {
         document.querySelectorAll('[data-feed-shell]').forEach(function (shell) {
             shell.classList.add('is-loading');
+            shell.setAttribute('aria-busy', 'true');
             requestAnimationFrame(function () {
                 shell.classList.remove('is-loading');
+                shell.removeAttribute('aria-busy');
             });
         });
     }
@@ -187,12 +244,19 @@
             document.addEventListener('click', function (e) {
                 if (!root.contains(e.target)) close();
             });
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && !panel.hidden) {
+                    close();
+                    toggle.focus();
+                }
+            });
         });
     }
 
     window.SplitBillsUI = { toast: toast, initSheet: initSheet };
 
     document.addEventListener('DOMContentLoaded', function () {
+        initMainLandmark();
         initTheme();
         showFlashToasts();
         initSheet('add-expense-sheet');

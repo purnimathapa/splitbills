@@ -5,196 +5,388 @@
 
 <div class="app-layout">
     {% include "partials/app_nav.html" %}
-    <main class="app-main">
+    <main class="app-main analytics-page" id="main-content">
 
         <header class="page-head">
             <div>
-                <p class="tag">Insights</p>
+                <p class="type-overline">Insights</p>
                 <h1>Analytics</h1>
-                <p class="text-caption">Spending across your groups{% if range_key == '30' %} · last 30 days{% elif range_key == '90' %} · last 3 months{% else %} · all time{% endif %}</p>
+                <p class="text-caption">How much you spent, where it went, and what you still owe{% if range_key == '30' %} · last 30 days{% elif range_key == '90' %} · last 3 months{% else %} · all time{% endif %}</p>
             </div>
         </header>
 
-        <div class="analytics-range" role="tablist" aria-label="Date range">
-            <a class="analytics-range__btn {% if range_key == '30' %}is-active{% endif %}" href="{{ url_for('analytics', range='30') }}">30 days</a>
-            <a class="analytics-range__btn {% if range_key == '90' %}is-active{% endif %}" href="{{ url_for('analytics', range='90') }}">3 months</a>
-            <a class="analytics-range__btn {% if range_key == 'all' %}is-active{% endif %}" href="{{ url_for('analytics', range='all') }}">All time</a>
-        </div>
+        <nav class="analytics-range" aria-label="Date range">
+            <a class="analytics-range__btn {% if range_key == '30' %}is-active{% endif %}" href="{{ url_for('analytics', range='30') }}"{% if range_key == '30' %} aria-current="page"{% endif %}>30 days</a>
+            <a class="analytics-range__btn {% if range_key == '90' %}is-active{% endif %}" href="{{ url_for('analytics', range='90') }}"{% if range_key == '90' %} aria-current="page"{% endif %}>3 months</a>
+            <a class="analytics-range__btn {% if range_key == 'all' %}is-active{% endif %}" href="{{ url_for('analytics', range='all') }}"{% if range_key == 'all' %} aria-current="page"{% endif %}>All time</a>
+        </nav>
 
-        <div class="stats-grid">
-            <div class="stat-card stat-card--accent">
-                <h2>{{ currency }} {{ (total_expenses * conversion_rate)|round(2) }}</h2>
-                <p>Total in range</p>
-            </div>
-            <div class="stat-card">
-                <h2>{{ expense_count }}</h2>
-                <p>Expenses</p>
-            </div>
-            <div class="stat-card">
-                <h2>{{ trip_count }}</h2>
-                <p>Groups</p>
-            </div>
-            <div class="stat-card">
-                <h2>{{ friend_count }}</h2>
-                <p>People</p>
-            </div>
-        </div>
-
-        <div class="card chart-card">
-            <div class="chart-header">
-                <h2>Spend by category</h2>
-                <p class="text-caption">Where your money went (by expense category)</p>
-            </div>
-            {% if category_values %}
-                <div class="chart-canvas chart-canvas--loadable" data-chart-skeleton>
-                    <div class="skeleton skeleton--chart" aria-hidden="true"></div>
-                    <canvas id="categoryChart"></canvas>
+        {# ── How much did I spend? ── #}
+        <section class="page-section" aria-labelledby="analytics-spending-heading">
+            <div class="page-section__head">
+                <div>
+                    <h2 id="analytics-spending-heading">How much did you spend?</h2>
+                    <p class="text-caption">Non-recurring expenses in groups and personal splits</p>
                 </div>
+            </div>
+
+            <article class="card analytics-hero">
+                <p class="analytics-hero__label">Total spending</p>
+                <p class="amount amount--xl amount--neutral">{{ currency }} {{ (total_expenses * conversion_rate)|round(2) }}</p>
+                <p class="text-caption analytics-hero__meta">
+                    {{ expense_count }} expense{% if expense_count != 1 %}s{% endif %}
+                    {% if expense_count and group_spending + personal_spending > 0 %}
+                    · {{ currency }} {{ (group_spending * conversion_rate)|round(2) }} in groups · {{ currency }} {{ (personal_spending * conversion_rate)|round(2) }} personal
+                    {% endif %}
+                </p>
+
+                {% if expense_count and total_expenses > 0 %}
+                {% set group_pct = ((group_spending / total_expenses) * 100)|round(0)|int %}
+                {% set personal_pct = 100 - group_pct %}
+                <div class="analytics-split" role="img" aria-label="Group spending {{ group_pct }} percent, personal {{ personal_pct }} percent">
+                    <div class="analytics-split__bar">
+                        {% if group_spending > 0 %}
+                        <span class="analytics-split__segment analytics-split__segment--group" style="width: {{ group_pct }}%" title="Group · {{ currency }} {{ (group_spending * conversion_rate)|round(2) }}"></span>
+                        {% endif %}
+                        {% if personal_spending > 0 %}
+                        <span class="analytics-split__segment analytics-split__segment--personal" style="width: {{ personal_pct }}%" title="Personal · {{ currency }} {{ (personal_spending * conversion_rate)|round(2) }}"></span>
+                        {% endif %}
+                    </div>
+                    <ul class="analytics-split__legend">
+                        {% if group_spending > 0 %}
+                        <li><span class="analytics-split__dot analytics-split__dot--group"></span> Group · {{ currency }} {{ (group_spending * conversion_rate)|round(2) }} ({{ group_pct }}%)</li>
+                        {% endif %}
+                        {% if personal_spending > 0 %}
+                        <li><span class="analytics-split__dot analytics-split__dot--personal"></span> Personal · {{ currency }} {{ (personal_spending * conversion_rate)|round(2) }} ({{ personal_pct }}%)</li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% elif expense_count == 0 %}
+                <p class="text-caption analytics-hero__empty">No expenses in this period. Add a bill or widen the date range to see spending here.</p>
+                {% endif %}
+            </article>
+        </section>
+
+        {# ── What do I owe? (not range-filtered — from payment links) ── #}
+        <section class="page-section" aria-labelledby="analytics-balance-heading">
+            <div class="page-section__head">
+                <div>
+                    <h2 id="analytics-balance-heading">What do you owe?</h2>
+                    <p class="text-caption">Outstanding payment links across all your expenses</p>
+                </div>
+                <a href="{{ url_for('settle_up') }}" class="link-muted">Settle up</a>
+            </div>
+
+            <div class="analytics-balance-grid">
+                <article class="card analytics-balance-card">
+                    <p class="analytics-balance-card__label">You owe</p>
+                    <p class="amount amount--lg amount--owed">{{ currency }} {{ (amount_owed * conversion_rate)|round(2) }}</p>
+                    <p class="text-caption">Pending amounts on links where you need to pay</p>
+                </article>
+                <article class="card analytics-balance-card">
+                    <p class="analytics-balance-card__label">Owed to you</p>
+                    <p class="amount amount--lg amount--receivable">{{ currency }} {{ (amount_receivable * conversion_rate)|round(2) }}</p>
+                    <p class="text-caption">Pending amounts others owe you</p>
+                </article>
+            </div>
+
+            {% if amount_owed > 0 or amount_receivable > 0 %}
+            {% set balance_max = [amount_owed, amount_receivable]|max %}
+            <div class="card analytics-balance-compare" role="img" aria-label="You owe {{ currency }} {{ (amount_owed * conversion_rate)|round(2) }}, owed to you {{ currency }} {{ (amount_receivable * conversion_rate)|round(2) }}">
+                <p class="analytics-balance-compare__title">Owed vs receivable</p>
+                <div class="analytics-balance-compare__row">
+                    <span class="analytics-balance-compare__label">You owe</span>
+                    <div class="analytics-balance-compare__track">
+                        <span class="analytics-balance-compare__fill analytics-balance-compare__fill--owed" style="width: {{ ((amount_owed / balance_max) * 100)|round(1) }}%"></span>
+                    </div>
+                    <span class="amount amount--owed analytics-balance-compare__value">{{ currency }} {{ (amount_owed * conversion_rate)|round(2) }}</span>
+                </div>
+                <div class="analytics-balance-compare__row">
+                    <span class="analytics-balance-compare__label">Owed to you</span>
+                    <div class="analytics-balance-compare__track">
+                        <span class="analytics-balance-compare__fill analytics-balance-compare__fill--receivable" style="width: {{ ((amount_receivable / balance_max) * 100)|round(1) }}%"></span>
+                    </div>
+                    <span class="amount amount--receivable analytics-balance-compare__value">{{ currency }} {{ (amount_receivable * conversion_rate)|round(2) }}</span>
+                </div>
+            </div>
+            {% elif settlement_pending_count == 0 and settlement_paid_count == 0 %}
+            <div class="card">
+                {{ empty_state('✓', 'No outstanding payment links', 'When someone owes you — or you owe them — on a shared expense, it will show up here.', url_for('settle_up'), 'View settlements') }}
+            </div>
             {% else %}
-                {{ empty_state('🏷️', 'No spending in this period', 'Add expenses with categories, or widen the date range above.', url_for('dashboard_groups'), 'Open a group') }}
+            <p class="text-caption analytics-balance-note">You're all caught up — no pending amounts on payment links.</p>
             {% endif %}
+
+            {% if settlement_pending_count > 0 %}
+            <p class="text-caption analytics-balance-note">
+                {{ settlement_pending_count }} pending settlement link{% if settlement_pending_count != 1 %}s{% endif %}
+                {% if settlement_pending_total > 0 %} · {{ currency }} {{ (settlement_pending_total * conversion_rate)|round(2) }} outstanding{% endif %}
+            </p>
+            {% endif %}
+        </section>
+
+        {# ── Spending over time ── #}
+        <section class="page-section" aria-labelledby="analytics-trend-heading">
+            <div class="page-section__head">
+                <div>
+                    <h2 id="analytics-trend-heading">How has spending changed?</h2>
+                    <p class="text-caption">Daily totals in the selected range</p>
+                </div>
+            </div>
+
+            <div class="card chart-card chart-card--flush">
+                {% if trend_labels and trend_values %}
+                <div class="chart-canvas chart-canvas--loadable chart-canvas--trend" data-chart-skeleton>
+                    <div class="skeleton skeleton--chart" aria-hidden="true"></div>
+                    <canvas id="trendChart" aria-label="Spending over time line chart"></canvas>
+                </div>
+                {% else %}
+                {{ empty_state('📈', 'No spending trends yet', 'Add some expenses to see your spending trends.', url_for('new_split'), 'Add an expense') }}
+                {% endif %}
+            </div>
+        </section>
+
+        {# ── Category + group breakdown ── #}
+        <div class="analytics-charts-grid">
+            <section class="page-section" aria-labelledby="analytics-category-heading">
+                <div class="page-section__head">
+                    <div>
+                        <h2 id="analytics-category-heading">Where did it go?</h2>
+                        <p class="text-caption">Spending by category</p>
+                    </div>
+                </div>
+
+                <div class="card chart-card chart-card--flush">
+                    {% if category_values %}
+                    <div class="chart-canvas chart-canvas--loadable chart-canvas--category" data-chart-skeleton>
+                        <div class="skeleton skeleton--chart" aria-hidden="true"></div>
+                        <canvas id="categoryChart" aria-label="Spending by category bar chart"></canvas>
+                    </div>
+                    {% else %}
+                    {{ empty_state('🏷️', 'No category data yet', 'Add expenses with categories, or widen the date range above.', url_for('dashboard_groups'), 'Open a group') }}
+                    {% endif %}
+                </div>
+            </section>
+
+            <section class="page-section" aria-labelledby="analytics-group-heading">
+                <div class="page-section__head">
+                    <div>
+                        <h2 id="analytics-group-heading">Which groups cost the most?</h2>
+                        <p class="text-caption">Total per active group</p>
+                    </div>
+                </div>
+
+                <div class="card chart-card chart-card--flush">
+                    {% if trip_values %}
+                    <div class="chart-canvas chart-canvas--loadable chart-canvas--group" data-chart-skeleton>
+                        <div class="skeleton skeleton--chart" aria-hidden="true"></div>
+                        <canvas id="tripChart" aria-label="Spending by group bar chart"></canvas>
+                    </div>
+                    {% else %}
+                    {{ empty_state('👥', 'No group spending yet', 'Create a group and log a shared bill to see breakdowns here.', url_for('create_group'), 'Create group') }}
+                    {% endif %}
+                </div>
+            </section>
         </div>
 
-        <div class="card chart-card">
-            <div class="chart-header">
-                <h2>Spend by group</h2>
-                <p class="text-caption">Total per group in the selected range</p>
-            </div>
-            {% if trip_values %}
-                <div class="chart-canvas chart-canvas--loadable" data-chart-skeleton>
-                    <div class="skeleton skeleton--chart" aria-hidden="true"></div>
-                    <canvas id="tripChart"></canvas>
-                </div>
-            {% else %}
-                {{ empty_state('👥', 'No group spending yet', 'Create a group and log a shared bill to see breakdowns here.', url_for('create_group'), 'Create group') }}
+        {% if recurring_active_count %}
+        <p class="text-caption analytics-footer-note">
+            {{ recurring_active_count }} active recurring expense{% if recurring_active_count != 1 %}s{% endif %}
+            · {{ currency }} {{ (recurring_per_occurrence_total * conversion_rate)|round(2) }} per cycle
+            {% if recurring_weekly_count or recurring_monthly_count %}
+            ({{ recurring_weekly_count }} weekly{% if recurring_weekly_count and recurring_monthly_count %}, {% endif %}{% if recurring_monthly_count %}{{ recurring_monthly_count }} monthly{% endif %})
             {% endif %}
-        </div>
-
-        <div class="card chart-card">
-            <div class="chart-header">
-                <h2>Spend over time</h2>
-                <p class="text-caption">Daily totals in the selected range</p>
-            </div>
-            {% if trend_labels and trend_values %}
-                <div class="chart-canvas chart-canvas--loadable" data-chart-skeleton>
-                    <div class="skeleton skeleton--chart" aria-hidden="true"></div>
-                    <canvas id="trendChart"></canvas>
-                </div>
-            {% else %}
-                {{ empty_state('📈', 'Not enough history yet', 'Once you have a few dated expenses, your trend line will appear here.', url_for('new_split'), 'Add an expense') }}
-            {% endif %}
-        </div>
+            — not included in spending totals above.
+        </p>
+        {% endif %}
 
     </main>
 </div>
 
 <script>
-const PALETTE = [
-    '#2563eb', '#0891b2', '#059669', '#7c3aed',
-    '#db2777', '#ea580c', '#4f46e5', '#0d9488',
-];
-const chartText = getComputedStyle(document.documentElement).getPropertyValue('--color-text-secondary').trim() || '#64748b';
-const chartGrid = 'color-mix(in srgb, var(--color-border) 80%, transparent)';
+(function () {
+    const CUR = {{ currency|tojson }};
+    const RATE = {{ conversion_rate|tojson }};
+    const chartText = getComputedStyle(document.documentElement).getPropertyValue('--color-text-secondary').trim() || '#64748b';
+    const chartGrid = 'color-mix(in srgb, var(--color-border) 80%, transparent)';
+    const primary = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#0f5c52';
 
-function currencyTick(val) {
-    return '{{ currency }} ' + Number(val).toLocaleString('en-IN', { maximumFractionDigits: 0 });
-}
+    const PALETTE = [
+        primary,
+        '#0891b2',
+        '#059669',
+        '#1e4976',
+        '#b45309',
+        '#7c3aed',
+        '#db2777',
+        '#0d9488',
+    ];
 
-const barOptions = (horizontal) => ({
-    indexAxis: horizontal ? 'y' : 'x',
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-        legend: { display: false },
-        tooltip: {
-            callbacks: {
-                label: ctx => {
-                    const v = horizontal ? ctx.parsed.x : ctx.parsed.y;
-                    return ' {{ currency }} ' + v.toLocaleString('en-IN', { minimumFractionDigits: 2 });
-                }
-            }
-        }
-    },
-    scales: {
-        x: {
-            grid: { color: chartGrid, display: !horizontal },
-            ticks: { color: chartText, callback: horizontal ? currencyTick : undefined }
-        },
-        y: {
-            grid: { color: chartGrid, display: horizontal },
-            ticks: { color: chartText, callback: horizontal ? undefined : currencyTick }
-        }
+    function formatMoney(raw) {
+        const val = Number(raw) * RATE;
+        return CUR + ' ' + val.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
-});
 
-{% if category_values %}
-new Chart(document.getElementById('categoryChart'), {
-    type: 'bar',
-    data: {
-        labels: {{ category_labels|tojson }},
-        datasets: [{
-            data: {{ category_values|tojson }},
-            backgroundColor: PALETTE.map(c => c + 'cc'),
-            borderColor: PALETTE,
-            borderWidth: 2,
-            borderRadius: 8,
-        }]
-    },
-    options: barOptions(true)
-});
-{% endif %}
-
-{% if trip_values %}
-new Chart(document.getElementById('tripChart'), {
-    type: 'bar',
-    data: {
-        labels: {{ trip_labels|tojson }},
-        datasets: [{
-            data: {{ trip_values|tojson }},
-            backgroundColor: PALETTE.slice(2).map(c => c + 'cc'),
-            borderColor: PALETTE.slice(2),
-            borderWidth: 2,
-            borderRadius: 8,
-        }]
-    },
-    options: barOptions(false)
-});
-{% endif %}
-
-{% if trend_values %}
-new Chart(document.getElementById('trendChart'), {
-    type: 'line',
-    data: {
-        labels: {{ trend_labels|tojson }},
-        datasets: [{
-            label: 'Daily spend',
-            data: {{ trend_values|tojson }},
-            borderColor: '#2563eb',
-            backgroundColor: 'color-mix(in srgb, #2563eb 15%, transparent)',
-            fill: true,
-            tension: 0.3,
-            pointRadius: 3,
-            pointHoverRadius: 5,
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: { display: false },
-            tooltip: {
-                callbacks: {
-                    label: ctx => ' {{ currency }} ' + ctx.parsed.y.toLocaleString('en-IN', { minimumFractionDigits: 2 })
-                }
-            }
-        },
-        scales: {
-            x: { grid: { display: false }, ticks: { color: chartText, maxRotation: 45 } },
-            y: { grid: { color: chartGrid }, ticks: { color: chartText, callback: currencyTick } }
+    function currencyTick(val) {
+        const scaled = Number(val) * RATE;
+        if (scaled >= 100000) {
+            return CUR + ' ' + (scaled / 100000).toFixed(1) + 'L';
         }
+        if (scaled >= 1000) {
+            return CUR + ' ' + (scaled / 1000).toFixed(1) + 'k';
+        }
+        return CUR + ' ' + scaled.toLocaleString('en-IN', { maximumFractionDigits: 0 });
     }
-});
-{% endif %}
+
+    function tooltipLabel(ctx, horizontal) {
+        const raw = horizontal ? ctx.parsed.x : ctx.parsed.y;
+        const label = ctx.dataset.label || ctx.label || '';
+        const prefix = label ? label + ': ' : '';
+        return prefix + formatMoney(raw);
+    }
+
+    function axisTitle(text) {
+        return {
+            display: true,
+            text,
+            color: chartText,
+            font: { size: 11, weight: '600' },
+            padding: { top: 4, bottom: 8 },
+        };
+    }
+
+    function barOptions(horizontal, valueTitle, categoryTitle) {
+        const valueAxis = horizontal ? 'x' : 'y';
+        const categoryAxis = horizontal ? 'y' : 'x';
+        return {
+            indexAxis: horizontal ? 'y' : 'x',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        title: items => items[0]?.label || '',
+                        label: ctx => tooltipLabel(ctx, horizontal),
+                    },
+                },
+            },
+            scales: {
+                x: {
+                    grid: { color: chartGrid, display: valueAxis === 'x' },
+                    ticks: {
+                        color: chartText,
+                        callback: valueAxis === 'x' ? currencyTick : undefined,
+                        maxRotation: horizontal ? 0 : 45,
+                    },
+                    title: valueAxis === 'x' ? axisTitle(valueTitle) : (categoryAxis === 'x' ? axisTitle(categoryTitle) : undefined),
+                },
+                y: {
+                    grid: { color: chartGrid, display: valueAxis === 'y' },
+                    ticks: {
+                        color: chartText,
+                        callback: valueAxis === 'y' ? currencyTick : undefined,
+                    },
+                    title: valueAxis === 'y' ? axisTitle(valueTitle) : (categoryAxis === 'y' ? axisTitle(categoryTitle) : undefined),
+                },
+            },
+        };
+    }
+
+    {% if category_values %}
+    new Chart(document.getElementById('categoryChart'), {
+        type: 'bar',
+        data: {
+            labels: {{ category_labels|tojson }},
+            datasets: [{
+                label: 'Spent',
+                data: {{ category_values|tojson }},
+                backgroundColor: PALETTE.map(c => c + 'cc'),
+                borderColor: PALETTE,
+                borderWidth: 2,
+                borderRadius: 6,
+            }],
+        },
+        options: barOptions(true, 'Amount (' + CUR + ')', 'Category'),
+    });
+    {% endif %}
+
+    {% if trip_values %}
+    new Chart(document.getElementById('tripChart'), {
+        type: 'bar',
+        data: {
+            labels: {{ trip_labels|tojson }},
+            datasets: [{
+                label: 'Spent',
+                data: {{ trip_values|tojson }},
+                backgroundColor: PALETTE.slice(1).map(c => c + 'cc'),
+                borderColor: PALETTE.slice(1),
+                borderWidth: 2,
+                borderRadius: 6,
+            }],
+        },
+        options: barOptions(false, 'Group', 'Amount (' + CUR + ')'),
+    });
+    {% endif %}
+
+    {% if trend_values %}
+    new Chart(document.getElementById('trendChart'), {
+        type: 'line',
+        data: {
+            labels: {{ trend_labels|tojson }},
+            datasets: [{
+                label: 'Daily spend',
+                data: {{ trend_values|tojson }},
+                borderColor: primary,
+                backgroundColor: 'color-mix(in srgb, ' + primary + ' 15%, transparent)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3,
+                pointHoverRadius: 5,
+            }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        title: items => {
+                            const raw = items[0]?.label || '';
+                            if (!raw) return '';
+                            const d = new Date(raw + 'T00:00:00');
+                            return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+                        },
+                        label: ctx => tooltipLabel(ctx, false),
+                    },
+                },
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: {
+                        color: chartText,
+                        maxRotation: 45,
+                        callback(val, idx) {
+                            const label = this.getLabelForValue(val);
+                            if (!label) return '';
+                            const d = new Date(label + 'T00:00:00');
+                            return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                        },
+                    },
+                    title: axisTitle('Date'),
+                },
+                y: {
+                    grid: { color: chartGrid },
+                    ticks: { color: chartText, callback: currencyTick },
+                    title: axisTitle('Daily total (' + CUR + ')'),
+                },
+            },
+        },
+    });
+    {% endif %}
+})();
 </script>
 
 {% endblock %}

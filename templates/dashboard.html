@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros/balance.html" import balance_card %}
+{% from "macros/activity_feed.html" import activity_feed %}
 {% from "macros/empty_state.html" import empty_state %}
 
 {% block content %}
@@ -7,89 +7,209 @@
 <div class="app-layout">
     {% include "partials/app_nav.html" %}
 
-    <main class="app-main dashboard-home">
+    <main class="app-main dashboard">
 
-        <header class="split-home-header">
-            <p class="split-home-greeting">Hey {{ current_user.name.split()[0] }}!</p>
-            <p class="text-caption">Scan a receipt, share links, get paid back</p>
+        <header class="dashboard__header">
+            <p class="type-overline">Dashboard</p>
+            <h1 class="dashboard__greeting">Hey, {{ current_user.name.split()[0] }}</h1>
+            <p class="text-caption">Last 30 days · {{ analytics.expense_count }} expense{% if analytics.expense_count != 1 %}s{% endif %}</p>
         </header>
 
-        <section class="dashboard-home__hero">
-            {{ balance_card(net_balance, '', conversion_rate) }}
+        <section class="dashboard__summary" aria-label="Financial summary">
+            <article class="dashboard-summary-card">
+                <p class="dashboard-summary-card__label">You owe</p>
+                <p class="amount amount--lg amount--owed">{{ currency }} {{ (total_you_owe * conversion_rate)|round(2) }}</p>
+            </article>
+            <article class="dashboard-summary-card">
+                <p class="dashboard-summary-card__label">Owed to you</p>
+                <p class="amount amount--lg amount--receivable">{{ currency }} {{ (total_owed_to_you * conversion_rate)|round(2) }}</p>
+            </article>
+            <article class="dashboard-summary-card">
+                <p class="dashboard-summary-card__label">Total spending</p>
+                <p class="amount amount--lg amount--neutral">{{ currency }} {{ (total_spending * conversion_rate)|round(2) }}</p>
+            </article>
         </section>
 
-        <section class="card dashboard-chart-card page-section">
-            <h2 class="text-h3">Collections</h2>
-            <p class="text-caption">Pending vs received from guest links</p>
-            <div class="dashboard-chart-wrap" data-chart-skeleton>
-                <canvas id="dashboard-collect-chart" aria-label="Collection chart"></canvas>
-            </div>
-        </section>
+        <div class="dashboard__layout">
+            <div class="dashboard__main">
 
-        <section class="page-section" id="need-collect">
-            <div class="page-section__head">
-                <h2>Need to collect</h2>
-                {% if payment_hub.pending_count %}
-                <span class="badge badge-neutral">{{ payment_hub.pending_count }}</span>
-                {% endif %}
+                <section class="page-section">
+                    <div class="page-section__head">
+                        <h2>Recent expenses</h2>
+                        <a href="{{ url_for('expenses') }}" class="link-muted">View all</a>
+                    </div>
+                    {% if recent_expenses %}
+                    <div class="card card--flush dashboard-expense-list">
+                        {% for expense in recent_expenses %}
+                        {% set summary = expense_summaries.get(expense.id, {}) %}
+                        <a href="{{ expense_url(expense) }}" class="dashboard-expense-row">
+                            <div class="dashboard-expense-row__body">
+                                <p class="dashboard-expense-row__title">{{ expense.description or 'Expense' }}</p>
+                                <p class="text-caption">
+                                    {% if expense.created_at %}{{ expense.created_at.strftime('%b %d') }}{% endif %}
+                                    {% if expense.trip_id %} · {{ trip_names.get(expense.trip_id, 'Group') }}{% endif %}
+                                </p>
+                            </div>
+                            <span class="amount amount--neutral">{{ currency }} {{ (expense.amount * conversion_rate)|round(2) }}</span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="card">
+                        {{ empty_state('🧾', 'No expenses yet', 'Add a bill with friends or scan a receipt to get started.', url_for('expenses'), 'Add an expense') }}
+                    </div>
+                    {% endif %}
+                </section>
+
+                <section class="page-section">
+                    <div class="page-section__head">
+                        <h2>Recent activity</h2>
+                        <a href="{{ url_for('activity_global') }}" class="link-muted">View all</a>
+                    </div>
+                    <div class="card card--flush">
+                        {{ activity_feed(activity_items, show_trip=true, empty_title='No activity yet', empty_subtext='When you add expenses or settle up, updates will appear here.') }}
+                    </div>
+                </section>
+
             </div>
 
-            {% if payment_hub.pending_links %}
-            <div class="need-collect-list">
-                {% for row in payment_hub.pending_links[:20] %}
-                <article class="need-collect-row card">
-                    <div class="need-collect-row__main">
-                        <p class="need-collect-row__title">{{ row.expense.description if row.expense else 'Expense' }}</p>
-                        <p class="text-caption">
-                            {% if row.guest %}{{ row.guest.name }}{% else %}Guest{% endif %}
-                            {% if row.is_claim_link %}
-                            · tap items on link
-                            {% elif row.link.amount_owed %}
-                            · {{ currency }} {{ (row.link.amount_owed * conversion_rate)|round(2) }}
+            <aside class="dashboard__aside">
+
+                <section class="page-section">
+                    <div class="page-section__head">
+                        <h2>Your groups</h2>
+                        <a href="{{ url_for('dashboard_groups') }}" class="link-muted">Manage</a>
+                    </div>
+                    {% if group_items %}
+                    <div class="card card--flush dashboard-group-list">
+                        {% for item in group_items %}
+                        <a href="{{ url_for('group_details', trip_id=item.trip.id) }}" class="dashboard-group-row">
+                            <span class="dashboard-group-row__name">{{ item.trip.trip_name }}</span>
+                            <span class="text-caption">{{ item.expense_count }} expense{% if item.expense_count != 1 %}s{% endif %}</span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="card">
+                        {{ empty_state('👥', 'No groups yet', 'Create a group for rent, trips, or shared bills.', url_for('create_group'), 'Create group') }}
+                    </div>
+                    {% endif %}
+                </section>
+
+                <section class="page-section" id="need-collect">
+                    <div class="page-section__head">
+                        <h2>Settlements</h2>
+                        <a href="{{ url_for('settle_up') }}" class="link-muted">Settle up</a>
+                    </div>
+
+                    {% if settlement_items %}
+                    <div class="card card--flush dashboard-settlement-list">
+                        {% for row in settlement_items %}
+                        <div class="dashboard-settlement-row">
+                            <p class="dashboard-settlement-row__text">
+                                {% if row.amount > 0 %}
+                                <span class="amount amount--receivable">{{ row.name }} owes you {{ currency }} {{ (row.amount * conversion_rate)|round(2) }}</span>
+                                {% else %}
+                                <span class="amount amount--owed">You owe {{ row.name }} {{ currency }} {{ ((-row.amount) * conversion_rate)|round(2) }}</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% elif payment_hub.pending_links %}
+                    <p class="text-caption dashboard__section-note">No friend balances — guest payment links need attention.</p>
+                    {% else %}
+                    <div class="card">
+                        {{ empty_state('✓', 'All settled up', 'No outstanding balances with friends right now.', url_for('settle_up'), 'Review balances') }}
+                    </div>
+                    {% endif %}
+
+                    {% if payment_hub.pending_links %}
+                    <div class="dashboard-collect-block">
+                        <p class="dashboard-collect-block__label">
+                            Need to collect
+                            {% if payment_hub.pending_count %}
+                            <span class="badge badge-neutral">{{ payment_hub.pending_count }}</span>
                             {% endif %}
                         </p>
+                        <div class="need-collect-list">
+                            {% for row in payment_hub.pending_links[:5] %}
+                            <article class="need-collect-row card">
+                                <div class="need-collect-row__main">
+                                    <p class="need-collect-row__title">{{ row.expense.description if row.expense else 'Expense' }}</p>
+                                    <p class="text-caption">
+                                        {% if row.guest %}{{ row.guest.name }}{% else %}Guest{% endif %}
+                                        {% if row.is_claim_link %}
+                                        · tap items on link
+                                        {% elif row.link.amount_owed %}
+                                        · {{ currency }} {{ (row.link.amount_owed * conversion_rate)|round(2) }}
+                                        {% endif %}
+                                    </p>
+                                </div>
+                                <button type="button" class="btn-primary btn-sm need-collect-row__share copy-pay-link" data-url="{{ row.url }}" data-copy-label="Link copied">Share link</button>
+                            </article>
+                            {% endfor %}
+                        </div>
+                        {% if payment_hub.pending_count > 5 %}
+                        <a href="{{ url_for('wallet') }}" class="link-muted dashboard-collect-block__more">View all in wallet</a>
+                        {% endif %}
                     </div>
-                    <button type="button" class="btn-primary btn-sm need-collect-row__share copy-pay-link" data-url="{{ row.url }}" data-copy-label="Link copied">Share link</button>
-                </article>
-                {% endfor %}
-            </div>
-            {% else %}
-            <div class="card">
-                {{ empty_state('💸', 'Nothing to collect', 'Tap + to scan a receipt and send pick-your-items links.', url_for('new_split'), 'New split') }}
-            </div>
-            {% endif %}
-        </section>
+                    {% endif %}
+                </section>
+
+                <section class="page-section">
+                    <div class="page-section__head">
+                        <h2>Spending summary</h2>
+                        <a href="{{ url_for('analytics') }}" class="link-muted">Analytics</a>
+                    </div>
+                    {% if analytics.expense_count %}
+                    <dl class="dashboard-spending-summary card">
+                        <div class="dashboard-spending-summary__row">
+                            <dt>Group</dt>
+                            <dd class="amount amount--neutral">{{ currency }} {{ (group_spending * conversion_rate)|round(2) }}</dd>
+                        </div>
+                        <div class="dashboard-spending-summary__row">
+                            <dt>Personal</dt>
+                            <dd class="amount amount--neutral">{{ currency }} {{ (personal_spending * conversion_rate)|round(2) }}</dd>
+                        </div>
+                    </dl>
+                    {% else %}
+                    <div class="card">
+                        {{ empty_state('📊', 'No spending data yet', 'Add some expenses to see your spending trends.', url_for('analytics'), 'View analytics') }}
+                    </div>
+                    {% endif %}
+                </section>
+
+                <section class="page-section">
+                    <div class="page-section__head">
+                        <h2>Upcoming recurring</h2>
+                    </div>
+                    {% if recurring_templates %}
+                    <div class="card card--flush dashboard-recurring-list">
+                        {% for expense in recurring_templates %}
+                        <div class="dashboard-recurring-row">
+                            <div class="dashboard-recurring-row__body">
+                                <p class="dashboard-recurring-row__title">{{ expense.description or 'Recurring expense' }}</p>
+                                <p class="text-caption">
+                                    {% if expense.next_occurrence_date %}Next {{ expense.next_occurrence_date.strftime('%b %d, %Y') }}{% endif %}
+                                    {% if expense.recurrence_interval %} · {{ expense.recurrence_interval }}{% endif %}
+                                </p>
+                            </div>
+                            <span class="amount amount--neutral">{{ currency }} {{ (expense.amount * conversion_rate)|round(2) }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="card">
+                        {{ empty_state('🔁', 'No recurring expenses', 'Set up rent, subscriptions, or shared bills on a schedule.', url_for('expenses'), 'Browse expenses') }}
+                    </div>
+                    {% endif %}
+                </section>
+
+            </aside>
+        </div>
 
     </main>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    var ctx = document.getElementById('dashboard-collect-chart');
-    if (!ctx || typeof Chart === 'undefined') return;
-    var pending = {{ chart_pending|tojson }};
-    var collected = {{ chart_collected|tojson }};
-    var textColor = getComputedStyle(document.documentElement).getPropertyValue('--color-text-secondary').trim() || '#64748b';
-    new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Pending', 'Collected'],
-            datasets: [{
-                data: [Math.max(pending, 0.01), Math.max(collected, 0.01)],
-                backgroundColor: ['#9333ea', '#059669'],
-                borderWidth: 0,
-            }],
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '68%',
-            plugins: {
-                legend: { position: 'bottom', labels: { color: textColor, boxWidth: 12 } },
-            },
-        },
-    });
-});
-</script>
 
 {% endblock %}

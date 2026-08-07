@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{% from "macros/settlement.html" import payment_row %}
+{% from "macros/settle_suggestion.html" import settle_suggestion_list %}
 {% from "macros/empty_state.html" import empty_state %}
 
 {% block content %}
@@ -6,34 +8,89 @@
     {% include "partials/app_nav.html" %}
     <div class="sw-body">
         {% include "partials/sw_sidebar.html" %}
-        <main class="sw-main">
+        <main class="sw-main settlement-page">
             <header class="sw-page-head">
-                <h1>Settle up</h1>
-                <p class="text-caption">Who owes whom across your groups and one-off splits.</p>
-            </header>
-            <div class="card card--flush">
-                {% if balances %}
-                {% for name, amount in balances.items() %}
-                <div class="sw-expense-row">
-                    <div class="sw-expense-row__icon" aria-hidden="true">⇄</div>
-                    <div class="sw-expense-row__body">
-                        {% if amount > 0.01 %}
-                        <p class="sw-expense-row__title"><strong>{{ name }}</strong> owes you</p>
-                        {% elif amount < -0.01 %}
-                        <p class="sw-expense-row__title">You owe <strong>{{ name }}</strong></p>
-                        {% else %}
-                        <p class="sw-expense-row__title">You and <strong>{{ name }}</strong> are settled</p>
-                        {% endif %}
-                    </div>
-                    <div class="sw-expense-row__amount {% if amount > 0.01 %}text-success{% elif amount < -0.01 %}text-danger{% endif %}">
-                        {% if amount|abs > 0.01 %}{{ currency }} {{ (amount|abs * conversion_rate)|round(2) }}{% else %}—{% endif %}
-                    </div>
+                <div>
+                    <p class="type-overline">Settle up</p>
+                    <h1>Your balances</h1>
+                    <p class="text-caption">Plain-language summary across all your groups and one-off splits.</p>
                 </div>
-                {% endfor %}
-                {% else %}
-                {{ empty_state('🎉', "You're all settled up!", 'New expenses will show balances here.', url_for('expenses'), 'All expenses') }}
+            </header>
+
+            {% if total_you_owe > 0.01 or total_owed_to_you > 0.01 %}
+            <section class="settlement-page__summary" aria-label="Balance overview">
+                {% if total_you_owe > 0.01 %}
+                <article class="settlement-summary-card settlement-summary-card--owing">
+                    <p class="settlement-summary-card__label">You owe</p>
+                    <p class="amount amount--lg amount--owed">{{ currency }} {{ (total_you_owe * conversion_rate)|round(2) }}</p>
+                    <p class="text-caption">{{ you_owe_rows|length }} person{% if you_owe_rows|length != 1 %}s{% endif %}</p>
+                </article>
                 {% endif %}
+                {% if total_owed_to_you > 0.01 %}
+                <article class="settlement-summary-card settlement-summary-card--owed">
+                    <p class="settlement-summary-card__label">Owed to you</p>
+                    <p class="amount amount--lg amount--receivable">{{ currency }} {{ (total_owed_to_you * conversion_rate)|round(2) }}</p>
+                    <p class="text-caption">{{ owed_to_you_rows|length }} person{% if owed_to_you_rows|length != 1 %}s{% endif %}</p>
+                </article>
+                {% endif %}
+            </section>
+            {% endif %}
+
+            {{ settle_suggestion_list(settle_suggestions) }}
+
+            {% if you_owe_rows %}
+            <section class="settlement-section">
+                <h2 class="settlement-section__title">You owe</h2>
+                <div class="card card--flush settlement-payment-list">
+                    {% for row in you_owe_rows %}
+                    <div class="settlement-payment-row settlement-payment-row--you-pay">
+                        <div class="settlement-payment-row__main">
+                            <p class="settlement-payment-row__sentence">You owe <strong>{{ row.name }}</strong></p>
+                            <p class="settlement-payment-row__amount amount amount--owed">{{ currency }} {{ (row.amount * conversion_rate)|round(2) }}</p>
+                        </div>
+                        <div class="settlement-payment-row__meta">
+                            <span class="badge badge-neutral">Pending</span>
+                            {% if row.pay_url %}
+                            <a href="{{ row.pay_url }}" class="btn-primary btn-sm">Pay now</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+
+            {% if owed_to_you_rows %}
+            <section class="settlement-section">
+                <h2 class="settlement-section__title">Owed to you</h2>
+                <div class="card card--flush settlement-payment-list">
+                    {% for row in owed_to_you_rows %}
+                    <div class="settlement-payment-row settlement-payment-row--you-get">
+                        <div class="settlement-payment-row__main">
+                            <p class="settlement-payment-row__sentence"><strong>{{ row.name }}</strong> owes you</p>
+                            <p class="settlement-payment-row__amount amount amount--receivable">{{ currency }} {{ (row.amount * conversion_rate)|round(2) }}</p>
+                        </div>
+                        <div class="settlement-payment-row__meta">
+                            <span class="badge badge-neutral">Pending</span>
+                            {% if row.collect_url %}
+                            <a href="{{ row.collect_url }}" class="btn-secondary btn-sm">Collect</a>
+                            {% endif %}
+                            {% if row.copy_url %}
+                            <button type="button" class="btn-secondary btn-sm copy-pay-link" data-url="{{ row.copy_url }}" data-copy-label="Link copied">Copy link</button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+
+            {% if not you_owe_rows and not owed_to_you_rows %}
+            <div class="card">
+                {{ empty_state('✓', "You're all settled up!", 'When friends owe you — or you owe them — it will show here in plain language.', url_for('expenses'), 'View expenses') }}
             </div>
+            {% endif %}
+
         </main>
         {% include "partials/sw_balance_panel.html" %}
     </div>

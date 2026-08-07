@@ -1,7 +1,9 @@
 {% extends "base.html" %}
+{% from "macros/ui.html" import user_avatar %}
 {% from "macros/empty_state.html" import empty_state %}
 
 {% block content %}
+
 <div class="sw-app">
     {% include "partials/app_nav.html" %}
     <div class="sw-body">
@@ -10,48 +12,70 @@
         <main class="sw-main">
             <header class="sw-page-head sw-page-head--actions">
                 <div>
+                    <p class="type-overline">Expenses</p>
                     <h1>All expenses</h1>
+                    {% if total_expenses %}
+                    <p class="text-caption">{{ currency }} {{ (total_expenses * conversion_rate)|round(2) }} total · {{ expenses|length }} record{% if expenses|length != 1 %}s{% endif %}</p>
+                    {% endif %}
                 </div>
                 <div class="sw-page-head__buttons">
-                    <button type="button" class="btn-primary" data-open-modal="quick-expense-modal">Add an expense</button>
+                    <button type="button" class="btn-primary" data-open-modal="quick-expense-modal">Add expense</button>
                     <a href="{{ url_for('settle_up') }}" class="btn-secondary">Settle up</a>
                 </div>
             </header>
 
-            <div class="card card--flush sw-expense-list">
+            {% if trip_summaries %}
+            <div class="expense-list-summary">
+                {% for summary in trip_summaries[:6] %}
+                <span class="expense-list-summary__chip">
+                    {% if summary.trip %}{{ summary.trip.trip_name }}{% else %}{{ summary.label }}{% endif %}
+                    · {{ summary.count }}
+                </span>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="card card--flush expense-list">
                 {% if expenses_by_month %}
                 {% for month_key, month_data in expenses_by_month %}
-                <div class="sw-month-group">
-                    <div class="sw-month-group__head">
-                        <span class="sw-month-group__label">{{ month_data.label }}</span>
+                <div class="expense-list__month">
+                    <div class="expense-list__month-head">
+                        <span>{{ month_data.label }}</span>
                     </div>
                     {% for expense in month_data.expenses %}
                     {% set summary = expense_summaries.get(expense.id, {}) %}
-                    <a href="{{ expense_url(expense) }}" class="sw-expense-row sw-expense-row--link">
-                        <div class="sw-expense-row__icon" aria-hidden="true">🍽</div>
-                        <div class="sw-expense-row__body">
-                            <p class="sw-expense-row__title">{{ expense.description or 'Expense' }}</p>
-                            <p class="sw-expense-row__meta text-caption">
-                                {% if expense.created_at %}{{ expense.created_at.strftime('%b %d').upper() }}{% endif %}
+                    <a href="{{ expense_url(expense) }}" class="expense-list__row">
+                        <div class="expense-list__icon" aria-hidden="true">
+                            {% if expense.category and 'Food' in expense.category %}🍽{% elif expense.category and 'Transport' in expense.category %}🚗{% elif expense.category and 'Rent' in expense.category %}🏠{% else %}🧾{% endif %}
+                        </div>
+                        <div class="expense-list__body">
+                            <p class="expense-list__title">{{ expense.description or 'Expense' }}</p>
+                            <p class="text-caption expense-list__meta">
+                                {% if expense.created_at %}{{ expense.created_at.strftime('%b %d') }}{% endif %}
+                                {% if expense.category %} · {{ expense.category }}{% endif %}
                                 {% if expense.trip_id %} · {{ trip_names.get(expense.trip_id, 'Group') }}{% endif %}
                             </p>
                             {% if summary.paid_line %}
-                            <p class="sw-expense-row__detail">{{ summary.paid_line }}</p>
+                            <p class="expense-list__detail">{{ summary.paid_line }}</p>
                             {% endif %}
                             {% for line in summary.secondary_lines %}
-                            <p class="sw-expense-row__detail {% if line.tone == 'positive' %}text-success{% elif line.tone == 'negative' %}text-danger{% endif %}">{{ line.text }}</p>
+                            <p class="expense-list__detail {% if line.tone == 'positive' %}text-success{% elif line.tone == 'negative' %}text-danger{% endif %}">{{ line.text }}</p>
                             {% endfor %}
                         </div>
-                        <div class="sw-expense-row__amount">
-                            <span class="sw-expense-row__total">{{ currency }} {{ (expense.amount * conversion_rate)|round(2) }}</span>
+                        <div class="expense-list__amount">
+                            <span class="amount amount--neutral">{{ currency }} {{ (expense.amount * conversion_rate)|round(2) }}</span>
                         </div>
                     </a>
                     {% endfor %}
                 </div>
                 {% endfor %}
                 {% else %}
-                <div class="sw-empty-wrap">
-                    {{ empty_state('🧾', 'No expenses yet', 'Add a simple bill with friends, or scan a receipt for itemized splits.', url_for('expenses'), 'Add an expense') }}
+                <div class="expense-list__empty">
+                    {{ empty_state('🧾', 'No expenses yet', 'Add a bill to start tracking what you spend and split.', none, none) }}
+                    <p class="text-caption expense-list__empty-actions">
+                        <button type="button" class="btn-primary btn-sm" data-open-modal="quick-expense-modal">Add expense</button>
+                        <a href="{{ url_for('new_split') }}" class="btn-secondary btn-sm">Scan a receipt</a>
+                    </p>
                 </div>
                 {% endif %}
             </div>

@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from sqlalchemy import or_
 
 from expense_participants import get_expense_member_ids, get_expense_members
 from models import Expense, ExpenseParticipant, User, db
+from money import MONEY_EPSILON, ZERO, quantize_money
 from settlemet import calculate_settlement
 from settle_suggestions import pairwise_net_on_expense
 
@@ -50,34 +53,35 @@ def friend_user_ids_from_standalone(user_id: int) -> set[int]:
     return ids
 
 
-def net_delta_from_settlements(settlements: list[dict], user_name: str) -> float:
-    delta = 0.0
+def net_delta_from_settlements(settlements: list[dict], user_name: str) -> Decimal:
+    delta = ZERO
     for row in settlements:
+        amount = quantize_money(row["amount"])
         if row["from"] == user_name:
-            delta -= row["amount"]
+            delta -= amount
         elif row["to"] == user_name:
-            delta += row["amount"]
+            delta += amount
     return delta
 
 
-def net_balance_from_standalone(user_id: int) -> float:
+def net_balance_from_standalone(user_id: int) -> Decimal:
     user = User.query.get(user_id)
     if not user:
-        return 0.0
-    net = 0.0
+        return ZERO
+    net = ZERO
     for expense in standalone_expenses_for_user(user_id):
         members = get_expense_members(expense)
         if len(members) < 2:
             continue
         settlements = calculate_settlement([expense], members)
         net += net_delta_from_settlements(settlements, user.name)
-    return round(net, 2)
+    return quantize_money(net)
 
 
 def apply_standalone_to_pairwise_balances(
     viewer_user_id: int,
     viewer_name: str,
-    net_by_name: dict[str, float],
+    net_by_name: dict[str, float | Decimal],
 ) -> None:
     """Mutate ``net_by_name`` (friend name → net) with one-off expenses."""
     for expense in standalone_expenses_for_user(viewer_user_id):
@@ -86,37 +90,44 @@ def apply_standalone_to_pairwise_balances(
             continue
         members = get_expense_members(expense)
         member_count = len(members) or 1
-        splits = {s.user_id: float(s.amount_owed or 0) for s in expense.splits or []}
+        splits = {
+            s.user_id: quantize_money(s.amount_owed or ZERO)
+            for s in expense.splits or []
+        }
         for member in members:
             if member.id == viewer_user_id:
                 continue
             delta = pairwise_net_on_expense(
-                amount=expense.amount or 0,
+                amount=expense.amount or ZERO,
                 paid_by=expense.paid_by,
                 viewer_user_id=viewer_user_id,
                 other_user_id=member.id,
                 split_map=splits,
                 member_count=member_count,
             )
-            if abs(delta) < 0.009:
+            if abs(delta) < MONEY_EPSILON:
                 continue
-            net_by_name[member.name] = net_by_name.get(member.name, 0.0) + delta
+            current = quantize_money(net_by_name.get(member.name, ZERO))
+            net_by_name[member.name] = quantize_money(current + delta)
 
 
-def compute_pairwise_net_standalone(viewer_user_id: int, other_user_id: int) -> float:
+def compute_pairwise_net_standalone(viewer_user_id: int, other_user_id: int) -> Decimal:
     if viewer_user_id == other_user_id:
-        return 0.0
-    net = 0.0
+        return ZERO
+    net = ZERO
     for expense in standalone_expenses_between_users(viewer_user_id, other_user_id):
         member_ids = get_expense_member_ids(expense)
         member_count = len(member_ids) or 1
-        splits = {s.user_id: float(s.amount_owed or 0) for s in expense.splits or []}
+        splits = {
+            s.user_id: quantize_money(s.amount_owed or ZERO)
+            for s in expense.splits or []
+        }
         net += pairwise_net_on_expense(
-            amount=expense.amount or 0,
+            amount=expense.amount or ZERO,
             paid_by=expense.paid_by,
             viewer_user_id=viewer_user_id,
             other_user_id=other_user_id,
             split_map=splits,
             member_count=member_count,
         )
-    return round(net, 2)
+    return quantize_money(net)

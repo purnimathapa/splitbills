@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from models import Expense, ExpenseParticipant, TripMember, User, db
 
+MAX_PARTICIPANTS = 50
+
 
 def get_trip_member_ids(trip_id: int) -> list[int]:
     memberships = TripMember.query.filter_by(trip_id=trip_id).all()
@@ -36,6 +38,26 @@ def persist_expense_participants(expense_id: int, user_ids: list[int]) -> None:
         )
 
 
+def parse_payer_from_form(
+    form,
+    default_user_id: int,
+    allowed_ids: set[int] | list[int],
+) -> int:
+    """Read ``paid_by_user_id``; must be among allowed participants."""
+    allowed = set(allowed_ids)
+    raw = (form.get("paid_by_user_id") or "").strip()
+    if not raw:
+        payer_id = default_user_id
+    else:
+        try:
+            payer_id = int(raw)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Choose who paid for this expense.") from exc
+    if payer_id not in allowed:
+        raise ValueError("Payer must be one of the selected participants.")
+    return payer_id
+
+
 def parse_participant_ids_from_form(form, payer_user_id: int) -> list[int]:
     """Read `participant_user_ids` checkboxes; payer is always included."""
     raw = form.getlist("participant_user_ids")
@@ -47,6 +69,47 @@ def parse_participant_ids_from_form(form, payer_user_id: int) -> list[int]:
             continue
         ids.add(uid)
     return sorted(ids)
+
+
+def validate_participants(
+    payer_user_id: int,
+    member_ids: list[int],
+    *,
+    trip_id: int | None = None,
+    allowed_user_ids: set[int] | None = None,
+) -> list[int]:
+    """Ensure payer and split members are valid before creating an expense."""
+    if payer_user_id not in member_ids:
+        member_ids = sorted(set(member_ids) | {payer_user_id})
+
+    if len(member_ids) < 2:
+        raise ValueError("Pick at least one other person to split with.")
+    if len(member_ids) > MAX_PARTICIPANTS:
+        raise ValueError(f"An expense cannot have more than {MAX_PARTICIPANTS} people.")
+
+    if trip_id is not None:
+        trip_member_ids = set(get_trip_member_ids(trip_id))
+        if payer_user_id not in trip_member_ids:
+            raise ValueError("You must be a member of this group to add expenses.")
+        invalid = set(member_ids) - trip_member_ids
+        if invalid:
+            raise ValueError("All participants must be members of this group.")
+        return sorted(member_ids)
+
+    if allowed_user_ids is not None:
+        invalid = set(member_ids) - allowed_user_ids
+        if invalid:
+            raise ValueError("One or more participants are not on your friends list.")
+
+    existing = {
+        row[0]
+        for row in db.session.query(User.id).filter(User.id.in_(member_ids)).all()
+    }
+    missing = set(member_ids) - existing
+    if missing:
+        raise ValueError("One or more participants could not be found.")
+
+    return sorted(member_ids)
 
 
 def user_can_access_expense(user: User, expense: Expense) -> bool:
@@ -67,6 +130,11 @@ def user_can_access_expense(user: User, expense: Expense) -> bool:
         ).first()
         is not None
     )
+
+
+def user_can_modify_expense(user: User, expense: Expense) -> bool:
+    """Only the payer may change expense data (finalize claims, future edit/delete)."""
+    return expense.paid_by == user.id and user_can_access_expense(user, expense)
 
 
 def visible_expense_ids_for_user(user_id: int, trip_ids: list[int]) -> list[int]:

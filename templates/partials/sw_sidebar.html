@@ -1,5 +1,5 @@
-<aside class="sw-sidebar" aria-label="Sidebar">
-    <nav class="sw-sidebar__nav">
+<aside class="sw-sidebar" aria-label="Section navigation">
+    <nav class="sw-sidebar__nav" aria-label="Expenses and activity">
         <a href="{{ url_for('expenses') }}" class="sw-sidebar__link {% if active_nav == 'expenses' %}is-active{% endif %}">All expenses</a>
         <a href="{{ url_for('activity_global') }}" class="sw-sidebar__link {% if active_nav == 'activity' %}is-active{% endif %}">Recent activity</a>
     </nav>

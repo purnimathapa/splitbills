@@ -7,15 +7,19 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/sw-app.css') }}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="{% if current_user.is_authenticated %}app-authenticated has-tab-bar{% endif %}" {% block body_attrs %}{% endblock %}>
+<a href="#main-content" class="skip-link">Skip to main content</a>
+<div id="sr-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
 {% if not current_user.is_authenticated %}
-<header class="public-nav">
+<header class="public-nav" role="banner">
     <div class="public-nav__inner">
         <a href="/" class="app-nav__brand">
             <span class="app-nav__mark">SB</span>

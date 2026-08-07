@@ -2,7 +2,8 @@
 
 import unittest
 
-from expense_split_logic import ParsedLineItem, compute_itemized_split, round_money
+from expense_split_logic import ParsedLineItem, compute_itemized_split
+from money import quantize_money
 
 
 class SelfServiceItemSplitTests(unittest.TestCase):

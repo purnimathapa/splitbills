@@ -1,7 +1,7 @@
 {% from "macros/ui.html" import user_avatar %}
-<header class="app-nav">
+<header class="app-nav" role="banner">
     <div class="app-nav__inner">
-        <a href="{{ url_for('expenses') }}" class="app-nav__brand">
+        <a href="{{ url_for('dashboard') }}" class="app-nav__brand" aria-label="SplitBills home">
             <span class="app-nav__mark">SB</span>
             <span>SplitBills</span>
         </a>

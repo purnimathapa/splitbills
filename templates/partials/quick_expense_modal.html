@@ -1,45 +1,97 @@
-<div class="sw-modal" id="quick-expense-modal" hidden>
-    <div class="sw-modal__backdrop" data-close-modal></div>
-    <div class="sw-modal__dialog" role="dialog" aria-labelledby="quick-expense-title">
+<div class="sw-modal" id="quick-expense-modal" hidden aria-hidden="true">
+    <div class="sw-modal__backdrop" data-close-modal tabindex="-1" aria-hidden="true"></div>
+    <div class="sw-modal__dialog sw-modal__dialog--wide" role="dialog" aria-modal="true" aria-labelledby="quick-expense-title">
         <header class="sw-modal__header">
             <h2 id="quick-expense-title">Add an expense</h2>
             <button type="button" class="sw-modal__close" data-close-modal aria-label="Close">×</button>
         </header>
-        <form method="POST" action="{{ url_for('quick_add_expense') }}" enctype="multipart/form-data" class="sw-modal__form">
-            <label class="sw-modal__label">With you and:</label>
-            <div class="sw-friend-pick">
+        <form method="POST" action="{{ url_for('quick_add_expense') }}" enctype="multipart/form-data" id="quick-expense-form" class="sw-modal__form expense-form form-stack" aria-describedby="quick-expense-errors">
+            <div id="quick-expense-errors" class="form-errors" role="alert" hidden></div>
+
+            <label class="form-label" for="quick-description">Description</label>
+            <input class="input-field" type="text" name="description" id="quick-description" placeholder="What was it for?" required>
+
+            <div class="expense-form__row expense-form__row--2">
+                <div>
+                    <label class="form-label" for="quick-amount">Amount</label>
+                    <input class="input-field" type="number" name="amount" id="quick-amount" min="0.01" step="0.01" placeholder="0.00" required inputmode="decimal">
+                </div>
+                <div>
+                    <label class="form-label" for="quick-category">Category</label>
+                    <select class="input-field" name="category" id="quick-category">
+                        {% for cat in expense_categories %}
+                        <option value="{{ cat }}" {% if cat == 'General' %}selected{% endif %}>{{ cat }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <label class="form-label" for="quick-date">Date</label>
+            <input class="input-field" type="date" name="expense_date" id="quick-date">
+
+            <label class="form-label" for="quick-participant-pick">Split with</label>
+            <fieldset class="participant-pick-grid" id="quick-participant-pick">
+                <legend class="sr-only">Split with</legend>
                 {% if nav_friends %}
                 {% for friend in nav_friends %}
-                <label class="sw-friend-chip">
-                    <input type="checkbox" name="participant_user_ids" value="{{ friend.id }}">
+                <label class="participant-chip">
+                    <input type="checkbox" name="participant_user_ids" value="{{ friend.id }}" checked>
                     <span>{{ friend.name }}</span>
                 </label>
                 {% endfor %}
                 {% else %}
-                <p class="text-caption">Join or create a group to add friends, then come back here.</p>
+                <p class="text-caption">Join a group to add friends, or use <a href="{{ url_for('new_split') }}">receipt split</a>.</p>
                 {% endif %}
-            </div>
-
-            <div class="sw-amount-row">
-                <span class="sw-amount-row__icon" aria-hidden="true">🧾</span>
-                <div class="sw-amount-row__fields">
-                    <input class="sw-amount-input" type="number" name="amount" min="0.01" step="0.01" placeholder="0.00" required inputmode="decimal">
-                    <input class="input-field" type="text" name="description" placeholder="What was it for? (e.g. food)" required>
-                </div>
-            </div>
-
-            <p class="sw-split-summary">Paid by <strong>you</strong> and split <strong>equally</strong>.</p>
-            <input type="hidden" name="split_method" value="equal">
+            </fieldset>
             <input type="hidden" name="participant_user_ids" value="{{ current_user.id }}">
+            <input type="hidden" name="paid_by_user_id" value="{{ current_user.id }}">
+            <input type="hidden" name="split_method" value="equal">
 
-            <label class="sw-modal__label">Notes or receipt (optional)</label>
-            <textarea class="input-field" name="remarks" rows="2" placeholder="Notes"></textarea>
-            <input class="input-field" type="file" name="receipt" accept="image/jpeg,image/png,image/gif,image/webp">
+            <p class="text-caption">Paid by <strong>you</strong>, split <strong>equally</strong> with selected friends.</p>
+
+            <label class="form-label" for="quick-remarks">Notes (optional)</label>
+            <input class="input-field" type="text" name="remarks" id="quick-remarks" placeholder="Any extra details">
+
+            <label class="form-label" for="quick-receipt">Receipt (optional)</label>
+            <input class="input-field" type="file" name="receipt" id="quick-receipt" accept="image/jpeg,image/png,image/gif,image/webp">
 
             <footer class="sw-modal__footer">
                 <button type="button" class="btn-secondary" data-close-modal>Cancel</button>
-                <button type="submit" class="btn-primary">Save</button>
+                <button type="submit" class="btn-primary">Save expense</button>
             </footer>
         </form>
     </div>
 </div>
+<script>
+(function () {
+    var form = document.getElementById('quick-expense-form');
+    var errors = document.getElementById('quick-expense-errors');
+    if (!form) return;
+    form.addEventListener('submit', function (e) {
+        var msgs = [];
+        var amount = parseFloat(document.getElementById('quick-amount').value || '0');
+        if (!(amount > 0)) msgs.push('Enter an amount greater than zero.');
+        var checked = form.querySelectorAll('input[name="participant_user_ids"]:checked').length;
+        var hidden = form.querySelectorAll('input[name="participant_user_ids"][type="hidden"]').length;
+        if (checked + hidden < 2) msgs.push('Select at least one friend to split with.');
+        if (msgs.length) {
+            e.preventDefault();
+            if (errors) {
+                errors.hidden = false;
+                errors.innerHTML = '<ul>' + msgs.map(function (m) { return '<li>' + m + '</li>'; }).join('') + '</ul>';
+                form.setAttribute('aria-invalid', 'true');
+            }
+            if (window.SplitBillsUI && window.SplitBillsUI.toast) {
+                window.SplitBillsUI.toast(msgs[0], 'error');
+            }
+            return;
+        }
+        var btn = form.querySelector('button[type="submit"]');
+        if (btn) {
+            btn.disabled = true;
+            btn.classList.add('is-loading');
+            btn.textContent = 'Saving…';
+        }
+    });
+})();
+</script>

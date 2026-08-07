@@ -1,6 +1,6 @@
 {# Reusable friendly empty state — icon (emoji), title, subtext, optional action link #}
-{% macro empty_state(icon='✨', title='Nothing here yet', subtext='', action_url=None, action_label=None, class='') %}
-<div class="empty-state empty-state--rich {{ class }}">
+{% macro empty_state(icon='✨', title='Nothing here yet', subtext='', action_url=None, action_label=None, class='', compact=false) %}
+<div class="empty-state empty-state--rich{% if compact %} empty-state--compact{% endif %} {{ class }}">
     <span class="empty-state__icon" aria-hidden="true">{{ icon }}</span>
     <h3 class="empty-state__title">{{ title }}</h3>
     {% if subtext %}
@@ -9,5 +9,20 @@
     {% if action_url and action_label %}
     <a href="{{ action_url }}" class="btn-primary btn-sm">{{ action_label }}</a>
     {% endif %}
+</div>
+{% endmacro %}
+
+{# Inline empty message inside lists and panels #}
+{% macro inline_empty(message, class='') %}
+<p class="empty-state empty-state--inline text-caption {{ class }}">{{ message }}</p>
+{% endmacro %}
+
+{# Alert banner — success, error, warning, info #}
+{% macro state_alert(kind='info', title='', message='', class='') %}
+<div class="alert alert--{{ kind }} {{ class }}" role="alert">
+    <div>
+        {% if title %}<p class="alert__title">{{ title }}</p>{% endif %}
+        {% if message %}<p{% if not title %} class="alert__message"{% endif %}>{{ message }}</p>{% endif %}
+    </div>
 </div>
 {% endmacro %}

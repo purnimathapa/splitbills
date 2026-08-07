@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from decimal import Decimal
+
 from expense_split_logic import (
     ParsedLineItem,
     compute_itemized_split,
-    round_money,
+    to_decimal,
 )
+from money import MONEY_EPSILON, ZERO, quantize_money
 from models import (
     PAYMENT_STATUS_PAID,
     PAYMENT_STATUS_PENDING,
@@ -34,8 +37,8 @@ def parse_itemized_line_items_only(form, member_ids: set[int]) -> tuple[list[Par
         if not name:
             continue
         try:
-            price = float(form.get(f"item_price_{index}", "0"))
-            quantity = float(form.get(f"item_quantity_{index}", "1"))
+            price = to_decimal(form.get(f"item_price_{index}", "0"))
+            quantity = to_decimal(form.get(f"item_quantity_{index}", "1"))
         except ValueError as exc:
             raise ValueError("Line item price and quantity must be numbers.") from exc
 
@@ -52,11 +55,11 @@ def parse_itemized_line_items_only(form, member_ids: set[int]) -> tuple[list[Par
         raise ValueError("Add at least one line item.")
 
     try:
-        tax_tip_amount = float(form.get("tax_tip_amount", "0") or "0")
+        tax_tip_amount = to_decimal(form.get("tax_tip_amount", "0") or "0")
     except ValueError as exc:
         raise ValueError("Tax & tip must be a valid number.") from exc
 
-    return line_items, round_money(max(tax_tip_amount, 0.0))
+    return line_items, quantize_money(max(tax_tip_amount, ZERO))
 
 
 def assignments_by_item_id(expense: Expense) -> dict[int, list[int]]:
@@ -75,8 +78,8 @@ def build_parsed_items(
         items.append(
             ParsedLineItem(
                 name=item.name,
-                price=float(item.price or 0),
-                quantity=float(item.quantity or 1),
+                price=to_decimal(item.price or 0),
+                quantity=to_decimal(item.quantity or 1),
                 assigned_user_ids=list(assignment_map.get(item.id, [])),
             )
         )
@@ -97,7 +100,7 @@ def compute_owed_from_assignment_map(
     assignment_map: dict[int, list[int]],
     *,
     allow_unclaimed: bool = False,
-) -> dict[int, float]:
+) -> dict[int, Decimal]:
     """Split using current assignments; skips unclaimed lines unless allow_unclaimed."""
     filtered_map = dict(assignment_map)
     if not allow_unclaimed:
@@ -113,7 +116,7 @@ def compute_owed_from_assignment_map(
 
     owed, _sub = compute_itemized_split(
         parsed,
-        float(expense.tax_tip_amount or 0),
+        quantize_money(expense.tax_tip_amount or ZERO),
         member_ids,
     )
     return owed
@@ -124,7 +127,7 @@ def preview_user_total(
     user_id: int,
     selected_item_ids: list[int],
     member_ids: list[int],
-) -> float:
+) -> Decimal:
     """What this user would owe if they claim selected_item_ids (merged with others' saved claims)."""
     base_map = assignments_by_item_id(expense)
     merged = {item_id: [u for u in uids if u != user_id] for item_id, uids in base_map.items()}
@@ -142,7 +145,7 @@ def preview_user_total(
         merged,
         allow_unclaimed=True,
     )
-    return round_money(owed.get(user_id, 0.0))
+    return quantize_money(owed.get(user_id, ZERO))
 
 
 def save_user_claims(
@@ -204,7 +207,7 @@ def create_self_service_payment_links(
             link_uuid=str(uuid.uuid4()),
             expense_id=expense.id,
             user_id=user_id,
-            amount_owed=0.0,
+            amount_owed=ZERO,
             status=PAYMENT_STATUS_PENDING,
         )
         db_session.add(link)
@@ -222,11 +225,20 @@ def claim_status_for_expense(expense: Expense, member_ids: list[int]) -> dict:
     claimed_user_ids = {link.user_id for link in links if link.items_claimed_at}
 
     debtor_links = [link for link in links if link.user_id != expense.paid_by]
-    expected_total = round_money(sum(link.amount_owed or 0 for link in debtor_links))
-    collected_total = round_money(
-        sum(link.amount_owed or 0 for link in debtor_links if link.status == PAYMENT_STATUS_PAID)
+    expected_total = quantize_money(
+        sum((quantize_money(link.amount_owed) for link in debtor_links), ZERO)
     )
-    pending_total = round_money(max(expected_total - collected_total, 0))
+    collected_total = quantize_money(
+        sum(
+            (
+                quantize_money(link.amount_owed)
+                for link in debtor_links
+                if link.status == PAYMENT_STATUS_PAID
+            ),
+            ZERO,
+        )
+    )
+    pending_total = quantize_money(max(expected_total - collected_total, ZERO))
 
     return {
         "self_service": bool(getattr(expense, "self_service_items", False)),
@@ -243,7 +255,7 @@ def claim_status_for_expense(expense: Expense, member_ids: list[int]) -> dict:
     }
 
 
-def finalize_expense_claims(expense: Expense, member_ids: list[int]) -> dict[int, float]:
+def finalize_expense_claims(expense: Expense, member_ids: list[int]) -> dict[int, Decimal]:
     if not getattr(expense, "self_service_items", False):
         raise ValueError("Not a self-service itemized expense.")
     if getattr(expense, "claims_finalized_at", None):
@@ -259,13 +271,13 @@ def finalize_expense_claims(expense: Expense, member_ids: list[int]) -> dict[int
 
     ExpenseSplit.query.filter_by(expense_id=expense.id).delete(synchronize_session=False)
     for user_id, amount in owed.items():
-        if amount <= 0:
+        if amount <= ZERO:
             continue
         db.session.add(
             ExpenseSplit(
                 expense_id=expense.id,
                 user_id=user_id,
-                amount_owed=round_money(amount),
+                amount_owed=quantize_money(amount),
             )
         )
 
@@ -273,7 +285,7 @@ def finalize_expense_claims(expense: Expense, member_ids: list[int]) -> dict[int
     for link in links:
         if link.user_id == expense.paid_by:
             continue
-        link.amount_owed = round_money(owed.get(link.user_id, 0.0))
+        link.amount_owed = quantize_money(owed.get(link.user_id, ZERO))
 
     expense.claims_finalized_at = datetime.utcnow()
     return owed

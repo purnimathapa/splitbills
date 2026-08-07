@@ -1,4 +1,4 @@
-/* Logged-in shell — uses theme.css tokens (indigo / Apple Wallet), no Splitwise green */
+/* Logged-in shell — uses design tokens from tokens.css */
 
 .sw-app {
     min-height: 100vh;
@@ -373,12 +373,49 @@
 @media (max-width: 960px) {
     .sw-body {
         grid-template-columns: 1fr;
-        padding-bottom: calc(var(--tab-bar-height) + var(--space-8));
+        padding: var(--space-4) var(--space-4) calc(var(--tab-bar-height) + var(--space-8));
     }
 
-    .sw-sidebar,
+    .sw-body--single {
+        padding-left: var(--space-4);
+        padding-right: var(--space-4);
+    }
+
     .sw-balance-panel {
         display: none;
+    }
+
+    .sw-sidebar {
+        position: static;
+        margin-bottom: var(--space-2);
+        padding-bottom: var(--space-3);
+        border-bottom: 1px solid var(--color-border);
+    }
+
+    .sw-sidebar__nav {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x proximity;
+        gap: var(--space-2);
+        margin-bottom: 0;
+        padding-bottom: var(--space-1);
+    }
+
+    .sw-sidebar__link {
+        flex-shrink: 0;
+        scroll-snap-align: start;
+        white-space: nowrap;
+    }
+
+    .sw-sidebar__section {
+        display: none;
+    }
+
+    .sw-page-head--actions {
+        flex-direction: column;
+        align-items: stretch;
     }
 
     .sw-page-head__buttons {
@@ -388,6 +425,23 @@
     .sw-page-head__buttons .btn-primary,
     .sw-page-head__buttons .btn-secondary {
         flex: 1;
+        min-width: 0;
+    }
+
+    .sw-page-head--actions > .btn-primary,
+    .sw-page-head--actions > .btn-secondary {
+        width: 100%;
+    }
+
+    .sw-expense-row {
+        flex-wrap: wrap;
+        padding: var(--space-4);
+    }
+
+    .sw-expense-row__amount {
+        width: 100%;
+        margin-left: 0;
+        text-align: left;
     }
 }
 

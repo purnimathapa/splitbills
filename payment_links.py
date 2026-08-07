@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import uuid
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from itsdangerous import BadSignature, URLSafeSerializer
+
+from money import MONEY_EPSILON, quantize_money
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -96,14 +99,15 @@ def resolve_payment_link(token: str, secret_key: str, db_session, model_class):
 
 def create_expense_payment_links(
     expense: Expense,
-    owed_by_user: dict[int, float],
+    owed_by_user: dict[int, Decimal] | dict[int, float],
     db_session,
     link_model,
 ) -> list:
     """Create pending payment links for everyone who owes (except the payer)."""
     created = []
     for user_id, amount_owed in owed_by_user.items():
-        if amount_owed <= 0.01:
+        owed = quantize_money(amount_owed)
+        if owed <= MONEY_EPSILON:
             continue
         if user_id == expense.paid_by:
             continue
@@ -113,7 +117,7 @@ def create_expense_payment_links(
             link_uuid=link_uuid,
             expense_id=expense.id,
             user_id=user_id,
-            amount_owed=round(float(amount_owed), 2),
+            amount_owed=owed,
             status=PAYMENT_STATUS_PENDING,
         )
         db_session.add(link)

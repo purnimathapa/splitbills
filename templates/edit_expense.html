@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="app-layout">
+    {% include "partials/app_nav.html" %}
+    <main class="app-main">
+
+        <header class="page-head">
+            <div>
+                <h1>Edit expense</h1>
+                <p class="text-caption">{% if trip is defined %}{{ trip.trip_name }}{% else %}One-off split{% endif %}</p>
+            </div>
+            <a href="{{ expense_url(expense) }}" class="btn-secondary">← Back</a>
+        </header>
+
+        <div class="card">
+            {% include "partials/add_expense_form.html" %}
+        </div>
+
+    </main>
+</div>
+
+{% include "partials/add_expense_scripts.html" %}
+
+{% endblock %}

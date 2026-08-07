@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros/empty_state.html" import empty_state %}
 {% from "macros/ui.html" import user_avatar %}
 {% from "macros/settle_suggestion.html" import settle_suggestion_banner %}
 
@@ -55,7 +56,7 @@
                     </div>
                     {% endfor %}
                 {% else %}
-                    <div class="empty-state"><p class="text-caption">No shared expenses yet.</p></div>
+                    {{ empty_state('🧾', 'No shared expenses yet', 'Expenses you split with ' ~ friend.name ~ ' will show up here.', compact=true) }}
                 {% endif %}
             </div>
         </section>

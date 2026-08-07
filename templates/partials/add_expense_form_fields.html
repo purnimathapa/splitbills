@@ -1,87 +1,193 @@
+{% set is_edit = expense is defined and expense %}
+{% set selected_participants = form_participant_ids if form_participant_ids is defined else (members|map(attribute='id')|list if members is defined else []) %}
+{% set current_split = form_split_method if form_split_method is defined else (expense.split_type if is_edit else 'equal') %}
+{% set payer_id = form_paid_by if form_paid_by is defined else (expense.paid_by if is_edit else current_user.id) %}
+
+<div id="expense-form-errors" class="form-errors" role="alert" hidden></div>
+
+<section class="expense-form__section">
+    <h3 class="expense-form__section-title">Details</h3>
+
     {% if not hide_bill_fields %}
-    <input class="input-field" type="text" name="description" placeholder="Description (e.g. Dinner at Mario's)" required>
+    <label class="form-label" for="expense-description">Description</label>
+    <input class="input-field" type="text" name="description" id="expense-description"
+           placeholder="e.g. Dinner at Mario's" required
+           value="{{ expense.description if is_edit else '' }}">
 
-    <input class="input-field" type="text" name="remarks" placeholder="Remarks (optional)">
+    <div class="expense-form__row expense-form__row--2">
+        <div>
+            <label class="form-label" for="expense-category">Category</label>
+            <select class="input-field" name="category" id="expense-category">
+                {% for cat in expense_categories %}
+                <option value="{{ cat }}" {% if is_edit and expense.category == cat %}selected{% elif not is_edit and cat == 'General' %}selected{% endif %}>{{ cat }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="form-label" for="expense-date">Date</label>
+            <input class="input-field" type="date" name="expense_date" id="expense-date"
+                   value="{% if is_edit and expense.created_at %}{{ expense.created_at.strftime('%Y-%m-%d') }}{% endif %}">
+        </div>
+    </div>
 
-    <label class="form-label">Receipt photo (optional)</label>
+    <label class="form-label" for="expense-remarks">Notes (optional)</label>
+    <input class="input-field" type="text" name="remarks" id="expense-remarks" placeholder="Any extra details"
+           value="{{ expense.remarks if is_edit and expense.remarks else '' }}">
+    {% endif %}
+</section>
+
+<section class="expense-form__section">
+    <h3 class="expense-form__section-title">Receipt</h3>
+    {% if not hide_bill_fields %}
+    <label class="form-label" for="receipt-input">Photo (optional)</label>
     <input class="input-field" type="file" name="receipt" id="receipt-input" accept="image/jpeg,image/png,image/gif,image/webp">
     <p class="text-caption">JPEG, PNG, GIF, or WebP · max 5MB</p>
+    {% if is_edit and expense.receipt_image_url %}
+    <p class="text-caption">Current receipt on file — upload a new image to replace it.</p>
+    {% endif %}
     <button type="button" class="btn-secondary btn-sm" id="scan-receipt-btn" disabled>
         Scan receipt for line items
     </button>
     <div id="ocr-status" class="ocr-status" role="status" hidden></div>
     {% endif %}
+</section>
 
-    <label class="form-row-inline split-toggle-itemized">
-        <input type="checkbox" name="use_itemized" id="use_itemized">
-        Itemize (line items)
-    </label>
+<section class="expense-form__section">
+    <h3 class="expense-form__section-title">Split</h3>
 
-    <div id="simple-split-panel">
-        <input class="input-field" type="number" name="amount" id="simple_amount" placeholder="Total amount" min="0.01" step="0.01">
-        <input type="hidden" name="split_method" id="split_method" value="equal">
-        <p class="text-caption split-even-hint">Split equally among everyone selected.</p>
+    <label class="form-label" for="paid-by-select">Paid by</label>
+    <select class="input-field" name="paid_by_user_id" id="paid-by-select">
+        {% for member in members %}
+        <option value="{{ member.id }}" {% if member.id == payer_id %}selected{% endif %}>{{ member.name }}{% if member.id == current_user.id %} (you){% endif %}</option>
+        {% endfor %}
+    </select>
+
+    {% if show_friend_picker is defined and show_friend_picker %}
+    <fieldset class="participant-pick-grid" id="participant-pick">
+        <legend class="form-label">Split with</legend>
+        {% for member in members %}
+        {% if member.id != current_user.id %}
+        <label class="participant-chip">
+            <input type="checkbox" name="participant_user_ids" value="{{ member.id }}"
+                   {% if member.id in selected_participants %}checked{% endif %}>
+            <span>{{ member.name }}</span>
+        </label>
+        {% endif %}
+        {% endfor %}
+    </fieldset>
+    <input type="hidden" name="participant_user_ids" value="{{ current_user.id }}">
+    {% elif members is defined and members|length > 1 %}
+    <fieldset class="participant-pick-grid" id="participant-pick">
+        <legend class="form-label">Split with</legend>
+        {% for member in members %}
+        <label class="participant-chip">
+            <input type="checkbox" name="participant_user_ids" value="{{ member.id }}"
+                   {% if member.id in selected_participants %}checked{% endif %}>
+            <span>{{ member.name }}{% if member.id == current_user.id %} (you){% endif %}</span>
+        </label>
+        {% endfor %}
+    </fieldset>
+    {% endif %}
+
+    <label class="form-label" for="split_method">Split method</label>
+    <select class="input-field" name="split_method" id="split_method">
+        <option value="equal" {% if current_split == 'equal' %}selected{% endif %}>Equally</option>
+        <option value="exact" {% if current_split == 'exact' %}selected{% endif %}>Exact amounts</option>
+        <option value="percentage" {% if current_split == 'percentage' %}selected{% endif %}>By percentage</option>
+        <option value="shares" {% if current_split == 'shares' %}selected{% endif %}>By shares</option>
+        <option value="itemized" {% if current_split == 'itemized' %}selected{% endif %}>Itemized (line items)</option>
+    </select>
+    <input type="hidden" name="use_itemized" id="use_itemized" value="">
+
+    <div id="split-validation-status" class="split-validation" aria-live="polite"></div>
+
+    <div id="split-panel-equal" class="split-panel">
+        <label class="form-label" for="simple_amount">Total amount</label>
+        <input class="input-field" type="number" name="amount" id="simple_amount"
+               placeholder="0.00" min="0.01" step="0.01" inputmode="decimal"
+               value="{% if is_edit and expense.split_type != 'itemized' %}{{ expense.amount }}{% endif %}">
+        <p class="text-caption split-even-hint">Split equally among everyone selected above.</p>
+        <ul class="split-preview-list" id="equal-split-preview"></ul>
     </div>
 
-    <div id="itemized-panel" hidden>
+    <div id="split-panel-exact" class="split-panel" hidden>
+        <label class="form-label" for="amount_exact">Total amount</label>
+        <input class="input-field" type="number" name="amount_exact" id="amount_exact"
+               placeholder="0.00" min="0.01" step="0.01" inputmode="decimal"
+               value="{% if is_edit and expense.split_type == 'exact' %}{{ expense.amount }}{% endif %}">
+        <p class="text-caption">Enter what each person owes — must add up to the total.</p>
+        {% for member in members %}
+        <div class="split-member-row">
+            <label class="sr-only" for="split-exact-{{ member.id }}">{{ member.name }} exact amount</label>
+            <span aria-hidden="true">{{ member.name }}</span>
+            <input class="input-field split-input" type="number" name="split_exact_{{ member.id }}" id="split-exact-{{ member.id }}"
+                   data-split-kind="exact" min="0" step="0.01" placeholder="0.00" inputmode="decimal"
+                   value="{% if form_split_values is defined %}{{ form_split_values.get('exact_' ~ member.id|string, '') }}{% endif %}">
+        </div>
+        {% endfor %}
+    </div>
+
+    <div id="split-panel-percentage" class="split-panel" hidden>
+        <label class="form-label" for="amount_pct">Total amount</label>
+        <input class="input-field" type="number" name="amount_pct" id="amount_pct"
+               placeholder="0.00" min="0.01" step="0.01" inputmode="decimal"
+               value="{% if is_edit and expense.split_type == 'percentage' %}{{ expense.amount }}{% endif %}">
+        <p class="text-caption">Percentages must add up to 100%.</p>
+        {% for member in members %}
+        <div class="split-member-row">
+            <label class="sr-only" for="split-pct-{{ member.id }}">{{ member.name }} percentage</label>
+            <span aria-hidden="true">{{ member.name }}</span>
+            <input class="input-field split-input" type="number" name="split_pct_{{ member.id }}" id="split-pct-{{ member.id }}"
+                   data-split-kind="pct" min="0" max="100" step="0.01" placeholder="%" inputmode="decimal"
+                   value="{% if form_split_values is defined %}{{ form_split_values.get('pct_' ~ member.id|string, '') }}{% endif %}">
+        </div>
+        {% endfor %}
+    </div>
+
+    <div id="split-panel-shares" class="split-panel" hidden>
+        <label class="form-label" for="amount_shares">Total amount</label>
+        <input class="input-field" type="number" name="amount_shares" id="amount_shares"
+               placeholder="0.00" min="0.01" step="0.01" inputmode="decimal"
+               value="{% if is_edit and expense.split_type == 'shares' %}{{ expense.amount }}{% endif %}">
+        <p class="text-caption">Enter share counts — e.g. 2 shares vs 1 share.</p>
+        {% for member in members %}
+        <div class="split-member-row">
+            <label class="sr-only" for="split-shares-{{ member.id }}">{{ member.name }} shares</label>
+            <span aria-hidden="true">{{ member.name }}</span>
+            <input class="input-field split-input" type="number" name="split_shares_{{ member.id }}" id="split-shares-{{ member.id }}"
+                   data-split-kind="shares" min="0" step="0.01" placeholder="Shares" inputmode="decimal"
+                   value="{% if form_split_values is defined %}{{ form_split_values.get('shares_' ~ member.id|string, '') }}{% endif %}">
+        </div>
+        {% endfor %}
+    </div>
+
+    <div id="split-panel-itemized" class="split-panel" hidden>
         <label class="form-row-inline">
             <input type="checkbox" name="self_service_items" id="self_service_items">
-            Send pick-your-items links (recommended for receipts)
+            Send pick-your-items links (guests choose on their link)
         </label>
         <p class="text-caption" id="self-service-hint" hidden>Friends open their link, tap what they had, then pay — no account needed.</p>
         <input type="hidden" name="item_row_count" id="item_row_count" value="0">
         <div class="page-section__head">
             <strong>Line items</strong>
-            <button type="button" class="btn-secondary btn-sm" id="add-item-row">+ Add item</button>
+            <button type="button" class="btn-secondary btn-sm" id="add-item-row" type="button">+ Add item</button>
         </div>
         <div id="item-rows"></div>
-        <label class="form-label">Tax &amp; tip</label>
-        <input class="input-field" type="number" name="tax_tip_amount" id="tax_tip_amount" placeholder="0.00" min="0" step="0.01" value="0">
+        <label class="form-label" for="tax_tip_amount">Tax &amp; tip</label>
+        <input class="input-field" type="number" name="tax_tip_amount" id="tax_tip_amount"
+               placeholder="0.00" min="0" step="0.01" value="{% if is_edit and expense.tax_tip_amount %}{{ expense.tax_tip_amount }}{% else %}0{% endif %}">
         <p class="text-caption">
             Subtotal: <strong id="items-subtotal">0.00</strong>
             · Total: <strong id="items-grand-total">0.00</strong>
         </p>
     </div>
 
-    <details id="advanced-split-options" class="advanced-split-options" hidden>
-        <summary class="text-caption">More split options</summary>
-        <label class="form-label">Split method</label>
-        <select class="input-field" name="split_method_advanced" id="split_method_advanced" disabled aria-hidden="true">
-            <option value="equal">Equally</option>
-            <option value="exact">Exact amounts</option>
-            <option value="percentage">By percentage</option>
-            <option value="shares">By shares</option>
-        </select>
-        <div id="split-panel-exact" hidden>
-            <input class="input-field" type="number" name="amount_exact" id="amount_exact" placeholder="Total amount" min="0.01" step="0.01">
-            {% for member in members %}
-            <div class="split-member-row">
-                <span>{{ member.name }}</span>
-                <input class="input-field" type="number" name="split_exact_{{ member.id }}" min="0" step="0.01" placeholder="0.00">
-            </div>
-            {% endfor %}
-        </div>
-        <div id="split-panel-percentage" hidden>
-            <input class="input-field" type="number" name="amount_pct" id="amount_pct" placeholder="Total amount" min="0.01" step="0.01">
-            {% for member in members %}
-            <div class="split-member-row">
-                <span>{{ member.name }}</span>
-                <input class="input-field" type="number" name="split_pct_{{ member.id }}" min="0" max="100" step="0.01" placeholder="%">
-            </div>
-            {% endfor %}
-        </div>
-        <div id="split-panel-shares" hidden>
-            <input class="input-field" type="number" name="amount_shares" id="amount_shares" placeholder="Total amount" min="0.01" step="0.01">
-            {% for member in members %}
-            <div class="split-member-row">
-                <span>{{ member.name }}</span>
-                <input class="input-field" type="number" name="split_shares_{{ member.id }}" min="0" step="0.01" placeholder="Shares">
-            </div>
-            {% endfor %}
-        </div>
+    {% if not is_edit %}
+    <details class="expense-form__recurrence">
+        <summary class="text-caption">Repeat this expense</summary>
         <label class="form-row-inline">
             <input type="checkbox" name="is_recurring" id="is_recurring">
-            Repeat this expense
+            Make recurring
         </label>
         <div id="recurrence-panel" hidden>
             <select class="input-field" name="recurrence_interval" id="recurrence_interval">
@@ -90,3 +196,9 @@
             </select>
         </div>
     </details>
+    {% endif %}
+</section>
+
+{% if is_edit and expense.split_type == 'itemized' and expense.items %}
+<script type="application/json" id="expense-edit-items-json">{{ edit_line_items | tojson }}</script>
+{% endif %}

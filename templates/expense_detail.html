@@ -7,27 +7,44 @@
     {% include "partials/app_nav.html" %}
     <div class="sw-body sw-body--single">
         <main class="sw-main sw-main--wide">
-        <header class="sw-page-head">
-            <a href="{{ url_for('expenses') }}" class="text-caption">← All expenses</a>
-            <h1>{{ expense.description }}</h1>
-            <p class="text-caption">{{ currency }} {{ (expense.amount * conversion_rate)|round(2) }} · Paid by {{ expense.payer.name }}</p>
+        <header class="sw-page-head sw-page-head--actions">
+            <div>
+                <a href="{{ url_for('expenses') }}" class="text-caption">← All expenses</a>
+                <h1>{{ expense.description }}</h1>
+                <p class="text-caption expense-detail__meta">
+                    <span class="amount amount--lg amount--neutral">{{ currency }} {{ (expense.amount * conversion_rate)|round(2) }}</span>
+                    {% if expense.category %} · {{ expense.category }}{% endif %}
+                    {% if expense.created_at %} · {{ expense.created_at.strftime('%b %d, %Y') }}{% endif %}
+                </p>
+                <p class="text-caption">Paid by {{ expense.payer.name }}</p>
+            </div>
+            {% if can_edit %}
+            <a href="{{ edit_url }}" class="btn-secondary">Edit</a>
+            {% endif %}
         </header>
 
-        <div class="card">
+        <div class="card expense-detail">
+            {% if expense.remarks %}
+            <section class="card-section">
+                <h3>Notes</h3>
+                <p>{{ expense.remarks }}</p>
+            </section>
+            {% endif %}
+
             {% if line_items %}
             <section class="card-section">
                 <h3>Line items</h3>
                 {% for item in line_items %}
-                <div class="settlement-row{% if item.unclaimed %} claim-row--warn{% endif %}">
-                    <span class="text-caption">
+                <div class="expense-detail__line{% if item.unclaimed %} expense-detail__line--warn{% endif %}">
+                    <span>
                         {{ item.name }}
                         {% if item.unclaimed %}
                         <span class="badge badge-warn">Unclaimed</span>
                         {% elif item.assignees %}
-                        · {{ item.assignees|join(', ') }}
+                        <span class="text-caption"> · {{ item.assignees|join(', ') }}</span>
                         {% endif %}
                     </span>
-                    <strong>{{ currency }} {{ (item.total * conversion_rate)|round(2) }}</strong>
+                    <span class="amount amount--neutral">{{ currency }} {{ (item.total * conversion_rate)|round(2) }}</span>
                 </div>
                 {% endfor %}
             </section>
@@ -36,9 +53,9 @@
             {% if claim_status and not claim_status.finalized %}
             <section class="card-section claim-status-section">
                 <h3>Item claims</h3>
-                <p class="text-caption">Share each person's <strong>/split/</strong> link — they tap what they had, then pay.</p>
+                <p class="text-caption">Share each person's link — they tap what they had, then pay.</p>
                 {% if claim_status.unclaimed_items %}
-                <p class="text-caption text-warn"><strong>{{ claim_status.unclaimed_items|length }}</strong> line item(s) not claimed by anyone yet.</p>
+                <p class="alert alert-warn">{{ claim_status.unclaimed_items|length }} line item(s) not claimed yet.</p>
                 {% endif %}
                 <ul class="claim-status-list">
                     {% for cl in claim_links %}
@@ -49,32 +66,27 @@
                                 {% if cl.claimed %}Claimed{% else %}Pending{% endif %}
                             </span>
                         </div>
-                        <button type="button" class="btn-secondary btn-sm copy-pay-link" data-url="{{ cl.url }}" data-copy-label="Split link copied">Copy split link</button>
+                        <button type="button" class="btn-secondary btn-sm copy-pay-link" data-url="{{ cl.url }}" data-copy-label="Split link copied" aria-label="Copy split link for {{ cl.guest_name }}">Copy link</button>
                     </li>
                     {% endfor %}
                 </ul>
                 <form method="POST" action="{% if trip %}{{ url_for('finalize_claims_route', trip_id=trip.id, expense_id=expense.id) }}{% else %}{{ url_for('finalize_claims_standalone', expense_id=expense.id) }}{% endif %}" class="stack-sm">
-                    <p class="text-caption">Finalize when everyone has claimed (or to lock splits with current claims).</p>
+                    <p class="text-caption">Finalize when everyone has claimed, or to lock splits with current claims.</p>
                     <button type="submit" class="btn-primary btn-sm">Finalize &amp; generate payment links</button>
                 </form>
             </section>
             {% elif claim_status and claim_status.finalized %}
             <section class="card-section">
-                <p class="text-caption text-success">Item claims finalized {{ expense.claims_finalized_at.strftime('%d %b %Y') if expense.claims_finalized_at else '' }}.</p>
+                <p class="text-caption text-success">Claims finalized {{ expense.claims_finalized_at.strftime('%d %b %Y') if expense.claims_finalized_at else '' }}.</p>
                 {% if claim_status.expected_total > 0 %}
                 <div class="claim-collection-progress">
                     <div class="claim-collection-progress__labels">
-                        <span class="text-caption">Collected from group</span>
+                        <span class="text-caption">Collected</span>
                         <strong class="tabular-nums">{{ currency }} {{ (claim_status.collected_total * conversion_rate)|round(2) }} / {{ (claim_status.expected_total * conversion_rate)|round(2) }}</strong>
                     </div>
                     <div class="claim-collection-progress__track">
                         <div class="claim-collection-progress__fill" style="width: {{ (100 * claim_status.collected_total / claim_status.expected_total)|round(1) if claim_status.expected_total else 0 }}%;"></div>
                     </div>
-                    {% if claim_status.pending_total > 0.01 %}
-                    <p class="text-caption">{{ currency }} {{ (claim_status.pending_total * conversion_rate)|round(2) }} still outstanding.</p>
-                    {% else %}
-                    <p class="text-caption text-success">Fully collected.</p>
-                    {% endif %}
                 </div>
                 {% endif %}
             </section>
@@ -84,21 +96,17 @@
             <section class="card-section">
                 <h3>Split breakdown</h3>
                 {% for row in split_rows %}
-                <div class="sw-expense-row">
+                <div class="expense-detail__split-row">
                     {{ user_avatar(row.user, 'sm') }}
-                    <div class="sw-expense-row__body">
-                        <p class="sw-expense-row__title">{{ row.user.name }}</p>
+                    <div class="expense-detail__split-body">
+                        <p class="expense-detail__split-name">{{ row.user.name }}</p>
                         {% if row.user.id == expense.paid_by %}
-                        <p class="sw-expense-row__detail text-caption">paid {{ currency }} {{ (expense.amount * conversion_rate)|round(2) }}</p>
+                        <p class="text-caption">paid the full amount</p>
                         {% endif %}
                     </div>
-                    <div class="sw-expense-row__amount {% if row.user.id != expense.paid_by %}text-danger{% endif %}">
-                        {% if row.user.id == expense.paid_by %}
-                        owes {{ currency }} {{ (row.amount_owed * conversion_rate)|round(2) }}
-                        {% else %}
-                        owes {{ currency }} {{ (row.amount_owed * conversion_rate)|round(2) }}
-                        {% endif %}
-                    </div>
+                    <span class="amount {% if row.user.id != expense.paid_by %}amount--owed{% else %}amount--neutral{% endif %}">
+                        {{ currency }} {{ (row.amount_owed * conversion_rate)|round(2) }}
+                    </span>
                 </div>
                 {% endfor %}
             </section>
@@ -115,7 +123,7 @@
                         <span class="badge {% if pl.status == 'paid' %}badge-success{% else %}badge-neutral{% endif %}">{{ pl.status|replace('_', ' ') }}</span>
                     </div>
                     <div class="stack-sm stack-sm--align-end">
-                        <strong>{{ currency }} {{ (pl.amount * conversion_rate)|round(2) }}</strong>
+                        <span class="amount amount--neutral">{{ currency }} {{ (pl.amount * conversion_rate)|round(2) }}</span>
                         <button type="button" class="btn-secondary btn-sm copy-pay-link" data-url="{{ pl.url }}">Copy link</button>
                     </div>
                 </div>
@@ -127,7 +135,7 @@
             <section class="card-section">
                 <h3>Receipt</h3>
                 <a href="{{ url_for('static', filename=expense.receipt_image_url) }}" target="_blank" rel="noopener">
-                    <img class="receipt-full" src="{{ url_for('static', filename=expense.receipt_image_url) }}" alt="Receipt">
+                    <img class="receipt-full" src="{{ url_for('static', filename=expense.receipt_image_url) }}" alt="Receipt for {{ expense.description }}">
                 </a>
             </section>
             {% endif %}

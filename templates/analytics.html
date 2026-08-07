@@ -32,11 +32,11 @@
 
             <article class="card analytics-hero">
                 <p class="analytics-hero__label">Total spending</p>
-                <p class="amount amount--xl amount--neutral">{{ currency }} {{ (total_expenses * conversion_rate)|round(2) }}</p>
+                <p class="amount amount--xl amount--neutral">{{ currency }} {{ total_expenses|money }}</p>
                 <p class="text-caption analytics-hero__meta">
                     {{ expense_count }} expense{% if expense_count != 1 %}s{% endif %}
                     {% if expense_count and group_spending + personal_spending > 0 %}
-                    · {{ currency }} {{ (group_spending * conversion_rate)|round(2) }} in groups · {{ currency }} {{ (personal_spending * conversion_rate)|round(2) }} personal
+                    · {{ currency }} {{ group_spending|money }} in groups · {{ currency }} {{ personal_spending|money }} personal
                     {% endif %}
                 </p>
 
@@ -46,18 +46,18 @@
                 <div class="analytics-split" role="img" aria-label="Group spending {{ group_pct }} percent, personal {{ personal_pct }} percent">
                     <div class="analytics-split__bar">
                         {% if group_spending > 0 %}
-                        <span class="analytics-split__segment analytics-split__segment--group" style="width: {{ group_pct }}%" title="Group · {{ currency }} {{ (group_spending * conversion_rate)|round(2) }}"></span>
+                        <span class="analytics-split__segment analytics-split__segment--group" style="width: {{ group_pct }}%" title="Group · {{ currency }} {{ group_spending|money }}"></span>
                         {% endif %}
                         {% if personal_spending > 0 %}
-                        <span class="analytics-split__segment analytics-split__segment--personal" style="width: {{ personal_pct }}%" title="Personal · {{ currency }} {{ (personal_spending * conversion_rate)|round(2) }}"></span>
+                        <span class="analytics-split__segment analytics-split__segment--personal" style="width: {{ personal_pct }}%" title="Personal · {{ currency }} {{ personal_spending|money }}"></span>
                         {% endif %}
                     </div>
                     <ul class="analytics-split__legend">
                         {% if group_spending > 0 %}
-                        <li><span class="analytics-split__dot analytics-split__dot--group"></span> Group · {{ currency }} {{ (group_spending * conversion_rate)|round(2) }} ({{ group_pct }}%)</li>
+                        <li><span class="analytics-split__dot analytics-split__dot--group"></span> Group · {{ currency }} {{ group_spending|money }} ({{ group_pct }}%)</li>
                         {% endif %}
                         {% if personal_spending > 0 %}
-                        <li><span class="analytics-split__dot analytics-split__dot--personal"></span> Personal · {{ currency }} {{ (personal_spending * conversion_rate)|round(2) }} ({{ personal_pct }}%)</li>
+                        <li><span class="analytics-split__dot analytics-split__dot--personal"></span> Personal · {{ currency }} {{ personal_spending|money }} ({{ personal_pct }}%)</li>
                         {% endif %}
                     </ul>
                 </div>
@@ -80,33 +80,33 @@
             <div class="analytics-balance-grid">
                 <article class="card analytics-balance-card">
                     <p class="analytics-balance-card__label">You owe</p>
-                    <p class="amount amount--lg amount--owed">{{ currency }} {{ (amount_owed * conversion_rate)|round(2) }}</p>
+                    <p class="amount amount--lg amount--owed">{{ currency }} {{ amount_owed|money }}</p>
                     <p class="text-caption">Pending amounts on links where you need to pay</p>
                 </article>
                 <article class="card analytics-balance-card">
                     <p class="analytics-balance-card__label">Owed to you</p>
-                    <p class="amount amount--lg amount--receivable">{{ currency }} {{ (amount_receivable * conversion_rate)|round(2) }}</p>
+                    <p class="amount amount--lg amount--receivable">{{ currency }} {{ amount_receivable|money }}</p>
                     <p class="text-caption">Pending amounts others owe you</p>
                 </article>
             </div>
 
             {% if amount_owed > 0 or amount_receivable > 0 %}
             {% set balance_max = [amount_owed, amount_receivable]|max %}
-            <div class="card analytics-balance-compare" role="img" aria-label="You owe {{ currency }} {{ (amount_owed * conversion_rate)|round(2) }}, owed to you {{ currency }} {{ (amount_receivable * conversion_rate)|round(2) }}">
+            <div class="card analytics-balance-compare" role="img" aria-label="You owe {{ currency }} {{ amount_owed|money }}, owed to you {{ currency }} {{ amount_receivable|money }}">
                 <p class="analytics-balance-compare__title">Owed vs receivable</p>
                 <div class="analytics-balance-compare__row">
                     <span class="analytics-balance-compare__label">You owe</span>
                     <div class="analytics-balance-compare__track">
                         <span class="analytics-balance-compare__fill analytics-balance-compare__fill--owed" style="width: {{ ((amount_owed / balance_max) * 100)|round(1) }}%"></span>
                     </div>
-                    <span class="amount amount--owed analytics-balance-compare__value">{{ currency }} {{ (amount_owed * conversion_rate)|round(2) }}</span>
+                    <span class="amount amount--owed analytics-balance-compare__value">{{ currency }} {{ amount_owed|money }}</span>
                 </div>
                 <div class="analytics-balance-compare__row">
                     <span class="analytics-balance-compare__label">Owed to you</span>
                     <div class="analytics-balance-compare__track">
                         <span class="analytics-balance-compare__fill analytics-balance-compare__fill--receivable" style="width: {{ ((amount_receivable / balance_max) * 100)|round(1) }}%"></span>
                     </div>
-                    <span class="amount amount--receivable analytics-balance-compare__value">{{ currency }} {{ (amount_receivable * conversion_rate)|round(2) }}</span>
+                    <span class="amount amount--receivable analytics-balance-compare__value">{{ currency }} {{ amount_receivable|money }}</span>
                 </div>
             </div>
             {% elif settlement_pending_count == 0 and settlement_paid_count == 0 %}
@@ -120,7 +120,7 @@
             {% if settlement_pending_count > 0 %}
             <p class="text-caption analytics-balance-note">
                 {{ settlement_pending_count }} pending settlement link{% if settlement_pending_count != 1 %}s{% endif %}
-                {% if settlement_pending_total > 0 %} · {{ currency }} {{ (settlement_pending_total * conversion_rate)|round(2) }} outstanding{% endif %}
+                {% if settlement_pending_total > 0 %} · {{ currency }} {{ settlement_pending_total|money }} outstanding{% endif %}
             </p>
             {% endif %}
         </section>
@@ -192,7 +192,7 @@
         {% if recurring_active_count %}
         <p class="text-caption analytics-footer-note">
             {{ recurring_active_count }} active recurring expense{% if recurring_active_count != 1 %}s{% endif %}
-            · {{ currency }} {{ (recurring_per_occurrence_total * conversion_rate)|round(2) }} per cycle
+            · {{ currency }} {{ recurring_per_occurrence_total|money }} per cycle
             {% if recurring_weekly_count or recurring_monthly_count %}
             ({{ recurring_weekly_count }} weekly{% if recurring_weekly_count and recurring_monthly_count %}, {% endif %}{% if recurring_monthly_count %}{{ recurring_monthly_count }} monthly{% endif %})
             {% endif %}

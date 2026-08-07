@@ -33,7 +33,7 @@
             <div class="empty-state empty-state--rich empty-state--compact">
                 <h2 class="empty-state__title">All set</h2>
                 {% if link.amount_owed and link.amount_owed > 0 %}
-                <p class="pay-amount wallet-hero__amount tabular-nums">{{ currency }} {{ (link.amount_owed * conversion_rate)|round(2) }}</p>
+                <p class="pay-amount wallet-hero__amount tabular-nums">{{ currency }} {{ link.amount_owed|money }}</p>
                 {% else %}
                 <p class="text-caption">You don't owe anything on this bill.</p>
                 {% endif %}
@@ -66,7 +66,7 @@
                             <span class="claim-item-body">
                                 <span class="claim-item-name">{{ item.name }}{% if item.quantity > 1 %} × {{ item.quantity|int if item.quantity == item.quantity|int else item.quantity }}{% endif %}</span>
                             </span>
-                            <span class="claim-item-price tabular-nums">{{ currency }} {{ (item.line_total * conversion_rate)|round(2) }}</span>
+                            <span class="claim-item-price tabular-nums">{{ currency }} {{ item.line_total|money }}</span>
                         </label>
                     </li>
                     {% endfor %}

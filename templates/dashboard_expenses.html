@@ -11,7 +11,7 @@
         <header class="page-head">
             <div>
                 <h1>Expenses by group</h1>
-                <p class="text-caption">Grand total {{ currency }} {{ (total_expenses * conversion_rate)|round(2) }}</p>
+                <p class="text-caption">Grand total {{ currency }} {{ total_expenses|money }}</p>
             </div>
         </header>
 
@@ -19,14 +19,14 @@
         <section class="page-section">
             <div class="page-section__head">
                 <h2>One-off splits</h2>
-                <span class="badge badge-neutral">{{ currency }} {{ (standalone_data.total * conversion_rate)|round(2) }}</span>
+                <span class="badge badge-neutral">{{ currency }} {{ standalone_data.total|money }}</span>
             </div>
             {% if standalone_data.settlements %}
             <div class="card card-section">
                 <h3 class="text-small">Suggested settlements</h3>
                 <ul class="settlement-list">
                     {% for s in standalone_data.settlements %}
-                    <li class="text-caption"><strong>{{ s.from }}</strong> → <strong>{{ s.to }}</strong> · {{ currency }} {{ (s.amount * conversion_rate)|round(2) }}</li>
+                    <li class="text-caption"><strong>{{ s.from }}</strong> → <strong>{{ s.to }}</strong> · {{ currency }} {{ s.amount|money }}</li>
                     {% endfor %}
                 </ul>
             </div>
@@ -38,7 +38,7 @@
                         {{ user_avatar(e.payer, 'sm') }}
                         <span>{{ e.description }}</span>
                     </div>
-                    <strong>{{ currency }} {{ (e.amount * conversion_rate)|round(2) }}</strong>
+                    <strong>{{ currency }} {{ e.amount|money }}</strong>
                 </a>
                 {% endfor %}
             </div>
@@ -50,7 +50,7 @@
             <div class="page-section__head">
                 <h2><a href="{{ url_for('group_details', trip_id=t.trip.id) }}">{{ t.trip.trip_name }}</a></h2>
                 <span class="badge {% if t.trip.is_active %}badge-success{% else %}badge-neutral{% endif %}">
-                    {{ currency }} {{ (t.total * conversion_rate)|round(2) }}
+                    {{ currency }} {{ t.total|money }}
                 </span>
             </div>
 
@@ -59,7 +59,7 @@
                 <h3 class="text-small">Suggested settlements</h3>
                 <ul class="settlement-list">
                     {% for s in t.settlements %}
-                    <li class="text-caption"><strong>{{ s.from }}</strong> → <strong>{{ s.to }}</strong> · {{ currency }} {{ (s.amount * conversion_rate)|round(2) }}</li>
+                    <li class="text-caption"><strong>{{ s.from }}</strong> → <strong>{{ s.to }}</strong> · {{ currency }} {{ s.amount|money }}</li>
                     {% endfor %}
                 </ul>
             </div>
@@ -72,7 +72,7 @@
                         {{ user_avatar(e.payer, 'sm') }}
                         <span>{{ e.description }}</span>
                     </div>
-                    <strong>{{ currency }} {{ (e.amount * conversion_rate)|round(2) }}</strong>
+                    <strong>{{ currency }} {{ e.amount|money }}</strong>
                 </a>
                 {% else %}
                 {{ empty_state('🧾', 'Your group has no expenses yet.', 'Add a shared bill to start splitting costs.', url_for('group_details', trip_id=t.trip.id), 'Open group', compact=true) }}

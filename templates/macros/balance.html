@@ -1,6 +1,6 @@
 {# net: signed balance (positive = owed to viewer). Uses currency + conversion_rate from context. #}
 {% macro balance_card(net, subtitle='', conversion_rate=1) %}
-{% set abs_amt = (net|abs * conversion_rate)|round(2) %}
+{% set abs_amt = net|abs|money %}
 <div class="wallet-hero balance-card {% if net > 0.01 %}balance-card--positive wallet-hero--positive{% elif net < -0.01 %}balance-card--negative wallet-hero--negative{% else %}balance-card--neutral wallet-hero--neutral{% endif %}">
     {% if net > 0.01 %}
     <p class="wallet-hero__label">You're owed</p>
@@ -20,9 +20,9 @@
 
 {% macro member_balance_badge(net, conversion_rate=1) %}
 {% if net > 0.01 %}
-<span class="badge badge-success">+{{ currency }} {{ (net * conversion_rate)|round(2) }}</span>
+<span class="badge badge-success">+{{ currency }} {{ net|money }}</span>
 {% elif net < -0.01 %}
-<span class="badge badge-danger">−{{ currency }} {{ (net|abs * conversion_rate)|round(2) }}</span>
+<span class="badge badge-danger">−{{ currency }} {{ net|abs|money }}</span>
 {% else %}
 <span class="badge badge-neutral">Settled up</span>
 {% endif %}

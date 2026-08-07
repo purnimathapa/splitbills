@@ -18,7 +18,7 @@
 
         <div class="wallet-hero balance-card balance-card--positive page-section">
             <p class="wallet-hero__label">Outstanding to collect</p>
-            <p class="balance-card__amount wallet-hero__amount text-success tabular-nums">{{ currency }} {{ (pending_total * conversion_rate)|round(2) }}</p>
+            <p class="balance-card__amount wallet-hero__amount text-success tabular-nums">{{ currency }} {{ pending_total|money }}</p>
             <p class="text-caption">{{ pending_count }} link{% if pending_count != 1 %}s{% endif %} waiting</p>
         </div>
 
@@ -37,7 +37,7 @@
                         </div>
                     </div>
                     <div class="stack-sm stack-sm--align-end">
-                        <strong>{{ currency }} {{ (row.link.amount_owed * conversion_rate)|round(2) }}</strong>
+                        <strong>{{ currency }} {{ row.link.amount_owed|money }}</strong>
                         <button type="button" class="btn-primary btn-sm copy-pay-link" data-url="{{ row.url }}">Copy link</button>
                     </div>
                 </div>

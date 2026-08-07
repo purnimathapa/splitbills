@@ -1,23 +1,27 @@
 {% extends "base.html" %}
 
+{% block body_class %}auth-layout{% endblock %}
+
 {% block content %}
 
 <div class="auth-page">
-    <div class="card auth-card">
+    <div class="card auth-card auth-card--compact">
         <a href="/" class="auth-card__brand">
             <span class="app-nav__mark">SB</span>
             <span>SplitBills</span>
         </a>
-        <h1>Create account</h1>
-        <p class="text-caption">Split bills, scan receipts, and collect payments.</p>
-        <form method="POST" class="form-stack">
+        <h1 class="auth-card__title">Sign up</h1>
+        {% if error %}
+        <p class="auth-hint auth-hint--error" role="alert">{{ error }}</p>
+        {% endif %}
+        <form method="POST" class="form-stack auth-form">
             <label class="sr-only" for="register-name">Full name</label>
-            <input class="input-field" type="text" name="name" id="register-name" placeholder="Full name" autocomplete="name" required>
+            <input class="input-field input-field--compact" type="text" name="name" id="register-name" placeholder="Full name" autocomplete="name" value="{{ name or '' }}" required>
             <label class="sr-only" for="register-email">Email</label>
-            <input class="input-field" type="email" name="email" id="register-email" placeholder="Email" autocomplete="email" required>
+            <input class="input-field input-field--compact" type="email" name="email" id="register-email" placeholder="Email" autocomplete="email" value="{{ email or '' }}" required>
             <label class="sr-only" for="register-password">Password</label>
-            <input class="input-field" type="password" name="password" id="register-password" placeholder="Password" autocomplete="new-password" required>
-            <button class="btn-primary btn-block" type="submit">Sign up</button>
+            <input class="input-field input-field--compact" type="password" name="password" id="register-password" placeholder="Password" autocomplete="new-password" required>
+            <button class="btn-primary btn-block" type="submit">Create account</button>
         </form>
         <p class="auth-switch">Already have an account? <a href="/login">Log in</a></p>
     </div>

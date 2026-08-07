@@ -18,15 +18,15 @@
         <section class="dashboard__summary" aria-label="Financial summary">
             <article class="dashboard-summary-card">
                 <p class="dashboard-summary-card__label">You owe</p>
-                <p class="amount amount--lg amount--owed">{{ currency }} {{ (total_you_owe * conversion_rate)|round(2) }}</p>
+                <p class="amount amount--lg amount--owed">{{ currency }} {{ total_you_owe|money }}</p>
             </article>
             <article class="dashboard-summary-card">
                 <p class="dashboard-summary-card__label">Owed to you</p>
-                <p class="amount amount--lg amount--receivable">{{ currency }} {{ (total_owed_to_you * conversion_rate)|round(2) }}</p>
+                <p class="amount amount--lg amount--receivable">{{ currency }} {{ total_owed_to_you|money }}</p>
             </article>
             <article class="dashboard-summary-card">
                 <p class="dashboard-summary-card__label">Total spending</p>
-                <p class="amount amount--lg amount--neutral">{{ currency }} {{ (total_spending * conversion_rate)|round(2) }}</p>
+                <p class="amount amount--lg amount--neutral">{{ currency }} {{ total_spending|money }}</p>
             </article>
         </section>
 
@@ -50,7 +50,7 @@
                                     {% if expense.trip_id %} · {{ trip_names.get(expense.trip_id, 'Group') }}{% endif %}
                                 </p>
                             </div>
-                            <span class="amount amount--neutral">{{ currency }} {{ (expense.amount * conversion_rate)|round(2) }}</span>
+                            <span class="amount amount--neutral">{{ currency }} {{ expense.amount|money }}</span>
                         </a>
                         {% endfor %}
                     </div>
@@ -108,9 +108,9 @@
                         <div class="dashboard-settlement-row">
                             <p class="dashboard-settlement-row__text">
                                 {% if row.amount > 0 %}
-                                <span class="amount amount--receivable">{{ row.name }} owes you {{ currency }} {{ (row.amount * conversion_rate)|round(2) }}</span>
+                                <span class="amount amount--receivable">{{ row.name }} owes you {{ currency }} {{ row.amount|money }}</span>
                                 {% else %}
-                                <span class="amount amount--owed">You owe {{ row.name }} {{ currency }} {{ ((-row.amount) * conversion_rate)|round(2) }}</span>
+                                <span class="amount amount--owed">You owe {{ row.name }} {{ currency }} {{ (-row.amount)|money }}</span>
                                 {% endif %}
                             </p>
                         </div>
@@ -142,7 +142,7 @@
                                         {% if row.is_claim_link %}
                                         · tap items on link
                                         {% elif row.link.amount_owed %}
-                                        · {{ currency }} {{ (row.link.amount_owed * conversion_rate)|round(2) }}
+                                        · {{ currency }} {{ row.link.amount_owed|money }}
                                         {% endif %}
                                     </p>
                                 </div>
@@ -166,11 +166,11 @@
                     <dl class="dashboard-spending-summary card">
                         <div class="dashboard-spending-summary__row">
                             <dt>Group</dt>
-                            <dd class="amount amount--neutral">{{ currency }} {{ (group_spending * conversion_rate)|round(2) }}</dd>
+                            <dd class="amount amount--neutral">{{ currency }} {{ group_spending|money }}</dd>
                         </div>
                         <div class="dashboard-spending-summary__row">
                             <dt>Personal</dt>
-                            <dd class="amount amount--neutral">{{ currency }} {{ (personal_spending * conversion_rate)|round(2) }}</dd>
+                            <dd class="amount amount--neutral">{{ currency }} {{ personal_spending|money }}</dd>
                         </div>
                     </dl>
                     {% else %}
@@ -195,7 +195,7 @@
                                     {% if expense.recurrence_interval %} · {{ expense.recurrence_interval }}{% endif %}
                                 </p>
                             </div>
-                            <span class="amount amount--neutral">{{ currency }} {{ (expense.amount * conversion_rate)|round(2) }}</span>
+                            <span class="amount amount--neutral">{{ currency }} {{ expense.amount|money }}</span>
                         </div>
                         {% endfor %}
                     </div>

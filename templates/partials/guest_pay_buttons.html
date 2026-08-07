@@ -1,7 +1,7 @@
 {% from "macros/payment.html" import payment_methods %}
 <div class="payment-methods payment-methods--inline">
     <p class="payment-methods__heading">Pay your share</p>
-    {% set khalti_ok = khalti_enabled and (link.amount_owed * conversion_rate) >= 10 %}
+    {% set khalti_ok = khalti_enabled and (link.amount_owed|money) >= 10 %}
     {% set online_ok = stripe_enabled or khalti_ok %}
     {{ payment_methods(stripe_enabled, khalti_ok, khalti_enabled, online_ok, token, link.amount_owed, currency, conversion_rate) }}
 </div>

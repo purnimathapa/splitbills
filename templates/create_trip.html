@@ -40,7 +40,7 @@
                         <strong>{{ item.trip.trip_name }}</strong>
                         <p class="text-caption">Code {{ item.trip.invite_code }} · {{ item.count }} expenses</p>
                     </div>
-                    <strong>{{ currency }} {{ (item.total * conversion_rate)|round(2) }}</strong>
+                    <strong>{{ currency }} {{ item.total|money }}</strong>
                 </a>
                 {% endfor %}
             </div>

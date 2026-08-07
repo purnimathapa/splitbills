@@ -12,7 +12,7 @@
                 <a href="{{ url_for('expenses') }}" class="text-caption">← All expenses</a>
                 <h1>{{ expense.description }}</h1>
                 <p class="text-caption expense-detail__meta">
-                    <span class="amount amount--lg amount--neutral">{{ currency }} {{ (expense.amount * conversion_rate)|round(2) }}</span>
+                    <span class="amount amount--lg amount--neutral">{{ currency }} {{ expense.amount|money }}</span>
                     {% if expense.category %} · {{ expense.category }}{% endif %}
                     {% if expense.created_at %} · {{ expense.created_at.strftime('%b %d, %Y') }}{% endif %}
                 </p>
@@ -44,7 +44,7 @@
                         <span class="text-caption"> · {{ item.assignees|join(', ') }}</span>
                         {% endif %}
                     </span>
-                    <span class="amount amount--neutral">{{ currency }} {{ (item.total * conversion_rate)|round(2) }}</span>
+                    <span class="amount amount--neutral">{{ currency }} {{ item.total|money }}</span>
                 </div>
                 {% endfor %}
             </section>
@@ -82,7 +82,7 @@
                 <div class="claim-collection-progress">
                     <div class="claim-collection-progress__labels">
                         <span class="text-caption">Collected</span>
-                        <strong class="tabular-nums">{{ currency }} {{ (claim_status.collected_total * conversion_rate)|round(2) }} / {{ (claim_status.expected_total * conversion_rate)|round(2) }}</strong>
+                        <strong class="tabular-nums">{{ currency }} {{ claim_status.collected_total|money }} / {{ claim_status.expected_total|money }}</strong>
                     </div>
                     <div class="claim-collection-progress__track">
                         <div class="claim-collection-progress__fill" style="width: {{ (100 * claim_status.collected_total / claim_status.expected_total)|round(1) if claim_status.expected_total else 0 }}%;"></div>
@@ -105,7 +105,7 @@
                         {% endif %}
                     </div>
                     <span class="amount {% if row.user.id != expense.paid_by %}amount--owed{% else %}amount--neutral{% endif %}">
-                        {{ currency }} {{ (row.amount_owed * conversion_rate)|round(2) }}
+                        {{ currency }} {{ row.amount_owed|money }}
                     </span>
                 </div>
                 {% endfor %}
@@ -123,7 +123,7 @@
                         <span class="badge {% if pl.status == 'paid' %}badge-success{% else %}badge-neutral{% endif %}">{{ pl.status|replace('_', ' ') }}</span>
                     </div>
                     <div class="stack-sm stack-sm--align-end">
-                        <span class="amount amount--neutral">{{ currency }} {{ (pl.amount * conversion_rate)|round(2) }}</span>
+                        <span class="amount amount--neutral">{{ currency }} {{ pl.amount|money }}</span>
                         <button type="button" class="btn-secondary btn-sm copy-pay-link" data-url="{{ pl.url }}">Copy link</button>
                     </div>
                 </div>

@@ -25,7 +25,7 @@
                         <div>
                             <strong>{{ item.friend.name }}</strong>
                             <p class="text-caption">{{ item.friend.email }} · {{ item.shared_trip_count }} shared group{% if item.shared_trip_count != 1 %}s{% endif %}</p>
-                            <p class="text-caption">Paid {{ currency }} {{ (item.total_spent * conversion_rate)|round(2) }}</p>
+                            <p class="text-caption">Paid {{ currency }} {{ item.total_spent|money }}</p>
                         </div>
                     </div>
                     <div class="stack-sm stack-sm--align-end">

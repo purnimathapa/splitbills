@@ -16,7 +16,7 @@
 <div class="payment-summary">
     <div class="payment-summary__amount">
         <p class="payment-summary__amount-label">Amount</p>
-        <p class="amount amount--lg amount--neutral tabular-nums">{{ currency }} {{ (amount * conversion_rate)|round(2) }}</p>
+        <p class="amount amount--lg amount--neutral tabular-nums">{{ currency }} {{ amount|money }}</p>
     </div>
     {% if payer %}
     <div class="pay-requester">
@@ -98,7 +98,7 @@
     </p>
     {% elif not online_ok %}
     <p class="payment-methods__note text-caption">
-        Online checkout isn't available here — pay {{ currency }} {{ (amount * conversion_rate)|round(2) }} directly, then tap <strong>I paid cash / bank transfer</strong>.
+        Online checkout isn't available here — pay {{ currency }} {{ amount|money }} directly, then tap <strong>I paid cash / bank transfer</strong>.
     </p>
     {% endif %}
 </div>

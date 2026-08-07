@@ -15,7 +15,7 @@
                     <p class="type-overline">Expenses</p>
                     <h1>All expenses</h1>
                     {% if total_expenses %}
-                    <p class="text-caption">{{ currency }} {{ (total_expenses * conversion_rate)|round(2) }} total · {{ expenses|length }} record{% if expenses|length != 1 %}s{% endif %}</p>
+                    <p class="text-caption">{{ currency }} {{ total_expenses|money }} total · {{ expenses|length }} record{% if expenses|length != 1 %}s{% endif %}</p>
                     {% endif %}
                 </div>
                 <div class="sw-page-head__buttons">
@@ -63,7 +63,7 @@
                             {% endfor %}
                         </div>
                         <div class="expense-list__amount">
-                            <span class="amount amount--neutral">{{ currency }} {{ (expense.amount * conversion_rate)|round(2) }}</span>
+                            <span class="amount amount--neutral">{{ currency }} {{ expense.amount|money }}</span>
                         </div>
                     </a>
                     {% endfor %}

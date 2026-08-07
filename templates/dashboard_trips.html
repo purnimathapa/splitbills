@@ -29,8 +29,8 @@
                             <p class="text-caption">{{ t.member_count }} members · {{ t.expense_count }} expenses</p>
                         </div>
                         <div class="stack-sm stack-sm--align-end">
-                            <span class="text-caption">Total {{ currency }} {{ (t.total * conversion_rate)|round(2) }}</span>
-                            <span class="text-caption">You paid {{ currency }} {{ (t.user_spent * conversion_rate)|round(2) }}</span>
+                            <span class="text-caption">Total {{ currency }} {{ t.total|money }}</span>
+                            <span class="text-caption">You paid {{ currency }} {{ t.user_spent|money }}</span>
                         </div>
                     </a>
                     {% endfor %}
@@ -51,7 +51,7 @@
                     <a class="list-row" href="{{ url_for('group_details', trip_id=t.trip.id) }}">
                         <div>
                             <strong>{{ t.trip.trip_name }}</strong>
-                            <p class="text-caption">{{ t.member_count }} members · {{ currency }} {{ (t.total * conversion_rate)|round(2) }}</p>
+                            <p class="text-caption">{{ t.member_count }} members · {{ currency }} {{ t.total|money }}</p>
                         </div>
                         <span class="badge badge-neutral">Closed</span>
                     </a>

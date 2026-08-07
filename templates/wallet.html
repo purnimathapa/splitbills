@@ -16,11 +16,11 @@
 
         <div class="stats-grid">
             <div class="stat-card stat-card--accent">
-                <h2>{{ currency }} {{ (collected_total * conversion_rate)|round(2) }}</h2>
+                <h2>{{ currency }} {{ collected_total|money }}</h2>
                 <p>Collected</p>
             </div>
             <div class="stat-card">
-                <h2>{{ currency }} {{ (pending_total * conversion_rate)|round(2) }}</h2>
+                <h2>{{ currency }} {{ pending_total|money }}</h2>
                 <p>Still pending</p>
             </div>
         </div>
@@ -39,7 +39,7 @@
                             <p class="text-caption">{{ row.expense.description if row.expense else '' }}</p>
                             <span class="badge badge-success">{{ row.link.payment_provider or 'paid' }}</span>
                         </div>
-                        <strong>{{ currency }} {{ (row.link.amount_owed * conversion_rate)|round(2) }}</strong>
+                        <strong>{{ currency }} {{ row.link.amount_owed|money }}</strong>
                     </div>
                     {% endfor %}
                 {% else %}

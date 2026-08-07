@@ -57,6 +57,7 @@
     }
 
     function showFlashToasts() {
+        if (document.body.classList.contains('auth-layout')) return;
         const node = document.getElementById('flash-messages-json');
         if (!node) return;
         try {

@@ -41,10 +41,10 @@
             <article class="group-summary-card">
                 <p class="group-summary-card__label">Your balance</p>
                 {% if my_net > 0.01 %}
-                <p class="amount amount--lg amount--receivable">{{ currency }} {{ (my_net * conversion_rate)|round(2) }}</p>
+                <p class="amount amount--lg amount--receivable">{{ currency }} {{ my_net|money }}</p>
                 <p class="text-caption">Owed to you in this group</p>
                 {% elif my_net < -0.01 %}
-                <p class="amount amount--lg amount--owed">{{ currency }} {{ (my_net|abs * conversion_rate)|round(2) }}</p>
+                <p class="amount amount--lg amount--owed">{{ currency }} {{ my_net|abs|money }}</p>
                 <p class="text-caption">You owe in this group</p>
                 {% else %}
                 <p class="group-summary-card__settled" aria-hidden="true">✓</p>
@@ -53,7 +53,7 @@
             </article>
             <article class="group-summary-card">
                 <p class="group-summary-card__label">Group spending</p>
-                <p class="amount amount--lg amount--neutral">{{ currency }} {{ (total * conversion_rate)|round(2) }}</p>
+                <p class="amount amount--lg amount--neutral">{{ currency }} {{ total|money }}</p>
                 <p class="text-caption">{{ expense_count }} expense{% if expense_count != 1 %}s{% endif %}</p>
             </article>
             <article class="group-summary-card">
@@ -85,7 +85,7 @@
                                     {% if expense.category %} · {{ expense.category }}{% endif %}
                                 </p>
                             </div>
-                            <span class="amount amount--neutral">{{ currency }} {{ (expense.amount * conversion_rate)|round(2) }}</span>
+                            <span class="amount amount--neutral">{{ currency }} {{ expense.amount|money }}</span>
                         </a>
                         {% endfor %}
                     </div>
@@ -112,7 +112,7 @@
                                 → <strong>{{ s.to }}</strong>{% if s.to == current_user.name %} (you){% endif %}
                             </p>
                             <span class="amount {% if s.from == current_user.name %}amount--owed{% elif s.to == current_user.name %}amount--receivable{% else %}amount--neutral{% endif %}">
-                                {{ currency }} {{ (s.amount * conversion_rate)|round(2) }}
+                                {{ currency }} {{ s.amount|money }}
                             </span>
                         </div>
                         {% endfor %}
@@ -150,7 +150,7 @@
                                     </p>
                                     <p class="group-member-row__meta text-caption">
                                         {{ role_badge(role) }}
-                                        · paid {{ currency }} {{ (member_spending.get(member.id, 0) * conversion_rate)|round(2) }}
+                                        · paid {{ currency }} {{ member_spending.get(member.id, 0)|money }}
                                     </p>
                                 </div>
                             </div>

@@ -14,11 +14,12 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="{% if current_user.is_authenticated %}app-authenticated has-tab-bar{% endif %}" {% block body_attrs %}{% endblock %}>
+<body class="{% if current_user.is_authenticated %}app-authenticated has-tab-bar{% endif %} {% block body_class %}{% endblock %}" {% block body_attrs %}{% endblock %}>
 <a href="#main-content" class="skip-link">Skip to main content</a>
 <div id="sr-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
-{% if not current_user.is_authenticated %}
+{% set auth_page = request.endpoint in ('login', 'register') %}
+{% if not current_user.is_authenticated and not auth_page %}
 <header class="public-nav" role="banner">
     <div class="public-nav__inner">
         <a href="/" class="app-nav__brand">

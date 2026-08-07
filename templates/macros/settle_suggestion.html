@@ -5,13 +5,13 @@
         {% if suggestion.viewer_owes %}
         <p class="settle-suggestion-banner__title">
             You owe <strong>{{ suggestion.other_name }}</strong>
-            <span class="amount amount--owed">{{ currency }} {{ (suggestion.amount * conversion_rate)|round(2) }}</span>
+            <span class="amount amount--owed">{{ currency }} {{ suggestion.amount|money }}</span>
         </p>
         <p class="text-caption">Pay your share to stay even — takes about a minute.</p>
         {% else %}
         <p class="settle-suggestion-banner__title">
             <strong>{{ suggestion.other_name }}</strong> owes you
-            <span class="amount amount--receivable">{{ currency }} {{ (suggestion.amount * conversion_rate)|round(2) }}</span>
+            <span class="amount amount--receivable">{{ currency }} {{ suggestion.amount|money }}</span>
         </p>
         <p class="text-caption">Send or copy their payment link so they can pay you back.</p>
         {% endif %}

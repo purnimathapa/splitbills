@@ -22,14 +22,14 @@
                 {% if total_you_owe > 0.01 %}
                 <article class="settlement-summary-card settlement-summary-card--owing">
                     <p class="settlement-summary-card__label">You owe</p>
-                    <p class="amount amount--lg amount--owed">{{ currency }} {{ (total_you_owe * conversion_rate)|round(2) }}</p>
+                    <p class="amount amount--lg amount--owed">{{ currency }} {{ total_you_owe|money }}</p>
                     <p class="text-caption">{{ you_owe_rows|length }} person{% if you_owe_rows|length != 1 %}s{% endif %}</p>
                 </article>
                 {% endif %}
                 {% if total_owed_to_you > 0.01 %}
                 <article class="settlement-summary-card settlement-summary-card--owed">
                     <p class="settlement-summary-card__label">Owed to you</p>
-                    <p class="amount amount--lg amount--receivable">{{ currency }} {{ (total_owed_to_you * conversion_rate)|round(2) }}</p>
+                    <p class="amount amount--lg amount--receivable">{{ currency }} {{ total_owed_to_you|money }}</p>
                     <p class="text-caption">{{ owed_to_you_rows|length }} person{% if owed_to_you_rows|length != 1 %}s{% endif %}</p>
                 </article>
                 {% endif %}
@@ -46,7 +46,7 @@
                     <div class="settlement-payment-row settlement-payment-row--you-pay">
                         <div class="settlement-payment-row__main">
                             <p class="settlement-payment-row__sentence">You owe <strong>{{ row.name }}</strong></p>
-                            <p class="settlement-payment-row__amount amount amount--owed">{{ currency }} {{ (row.amount * conversion_rate)|round(2) }}</p>
+                            <p class="settlement-payment-row__amount amount amount--owed">{{ currency }} {{ row.amount|money }}</p>
                         </div>
                         <div class="settlement-payment-row__meta">
                             <span class="badge badge-neutral">Pending</span>
@@ -68,7 +68,7 @@
                     <div class="settlement-payment-row settlement-payment-row--you-get">
                         <div class="settlement-payment-row__main">
                             <p class="settlement-payment-row__sentence"><strong>{{ row.name }}</strong> owes you</p>
-                            <p class="settlement-payment-row__amount amount amount--receivable">{{ currency }} {{ (row.amount * conversion_rate)|round(2) }}</p>
+                            <p class="settlement-payment-row__amount amount amount--receivable">{{ currency }} {{ row.amount|money }}</p>
                         </div>
                         <div class="settlement-payment-row__meta">
                             <span class="badge badge-neutral">Pending</span>

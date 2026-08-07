@@ -6,6 +6,12 @@ from notifications import mark_all_read, mark_read
 
 
 def register(app, bcrypt):
+    def _password_matches(stored_hash: str, password: str) -> bool:
+        try:
+            return bcrypt.check_password_hash(stored_hash, password)
+        except (ValueError, TypeError):
+            return False
+
     @app.route("/")
     def home():
         if current_user.is_authenticated:
@@ -23,8 +29,12 @@ def register(app, bcrypt):
             password = request.form.get("password", "")
 
             if User.query.filter_by(email=email).first():
-                flash("An account with that email already exists.", "error")
-                return redirect(url_for("register"))
+                return render_template(
+                    "register.html",
+                    error="An account with that email already exists.",
+                    name=name,
+                    email=email,
+                )
 
             user = User(
                 name=name,
@@ -50,13 +60,15 @@ def register(app, bcrypt):
             password = request.form.get("password", "")
             user = User.query.filter_by(email=email).first()
 
-            if user and bcrypt.check_password_hash(user.password, password):
+            if user and _password_matches(user.password, password):
                 login_user(user)
-                flash("Logged in successfully.", "success")
                 return redirect(url_for("dashboard"))
 
-            flash("Invalid email or password.", "error")
-            return redirect(url_for("login"))
+            return render_template(
+                "login.html",
+                error="Invalid email or password.",
+                email=email,
+            )
 
         return render_template("login.html")
 

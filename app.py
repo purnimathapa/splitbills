@@ -15,6 +15,7 @@ from notifications import recent_notifications, unread_count
 from routes import register_routes
 from scheduler_setup import init_scheduler_for_app
 from expense_create import EXPENSE_CATEGORIES
+from money import quantize_money, to_decimal
 from services.balances import get_all_friends, get_user_net_balance
 from services.trip_access import get_user_trips
 
@@ -123,6 +124,17 @@ def inject_nav_shell():
     }
 
 
+def _convert_amount(amount) -> float:
+    """Display money: Decimal-safe multiply by session conversion rate."""
+    rate = to_decimal(session.get("conversion_rate", 1))
+    return float(quantize_money(to_decimal(amount or 0) * rate))
+
+
+@app.template_filter("money")
+def money_filter(amount):
+    return _convert_amount(amount)
+
+
 @app.context_processor
 def inject_currency():
     default_cur = app.config.get("DEFAULT_CURRENCY", "Rs")
@@ -130,6 +142,7 @@ def inject_currency():
         "currency": session.get("currency", default_cur),
         "conversion_rate": float(session.get("conversion_rate", 1.0)),
         "expense_categories": EXPENSE_CATEGORIES,
+        "money": _convert_amount,
     }
 
 

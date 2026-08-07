@@ -1,21 +1,25 @@
 {% extends "base.html" %}
 
+{% block body_class %}auth-layout{% endblock %}
+
 {% block content %}
 
 <div class="auth-page">
-    <div class="card auth-card">
+    <div class="card auth-card auth-card--compact">
         <a href="/" class="auth-card__brand">
             <span class="app-nav__mark">SB</span>
             <span>SplitBills</span>
         </a>
-        <h1>Welcome back</h1>
-        <p class="text-caption">Log in to manage groups, receipts, and payments.</p>
-        <form method="POST" class="form-stack">
+        <h1 class="auth-card__title">Log in</h1>
+        {% if error %}
+        <p class="auth-hint auth-hint--error" role="alert">{{ error }}</p>
+        {% endif %}
+        <form method="POST" class="form-stack auth-form">
             <label class="sr-only" for="login-email">Email</label>
-            <input class="input-field" type="email" name="email" id="login-email" placeholder="Email" autocomplete="email" required>
+            <input class="input-field input-field--compact" type="email" name="email" id="login-email" placeholder="Email" autocomplete="email" value="{{ email or '' }}" required>
             <label class="sr-only" for="login-password">Password</label>
-            <input class="input-field" type="password" name="password" id="login-password" placeholder="Password" autocomplete="current-password" required>
-            <button class="btn-primary btn-block" type="submit">Log in</button>
+            <input class="input-field input-field--compact" type="password" name="password" id="login-password" placeholder="Password" autocomplete="current-password" required>
+            <button class="btn-primary btn-block" type="submit">Continue</button>
         </form>
         <p class="auth-switch">No account? <a href="/register">Sign up</a></p>
     </div>

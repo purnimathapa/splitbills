@@ -1,7 +1,7 @@
 {# Human-readable settlement copy and rows #}
 
 {% macro balance_sentence(name, net, currency, conversion_rate, is_you=false) %}
-{% set amt = (net|abs * conversion_rate)|round(2) %}
+{% set amt = net|abs|money %}
 {% if net > 0.01 %}
 <p class="settlement-balance-line settlement-balance-line--owed">
     {% if is_you %}You are owed{% else %}<strong>{{ name }}</strong> is owed{% endif %}
@@ -22,7 +22,7 @@
 {% endmacro %}
 
 {% macro payment_row(from_name, to_name, amount, currency, conversion_rate, viewer_name, pay_url=none, status='pending') %}
-{% set amt = (amount * conversion_rate)|round(2) %}
+{% set amt = amount|money %}
 {% set viewer_pays = from_name == viewer_name %}
 {% set viewer_receives = to_name == viewer_name %}
 <div class="settlement-payment-row {% if viewer_pays %}settlement-payment-row--you-pay{% elif viewer_receives %}settlement-payment-row--you-get{% endif %}">

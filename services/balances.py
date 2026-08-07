@@ -199,9 +199,14 @@ def build_expense_summaries(expenses, viewer_id: int) -> dict[int, dict]:
         for u in User.query.filter(User.id.in_(user_ids)).all()
     } if user_ids else {}
 
+    from money import quantize_money, to_decimal
+
     out: dict[int, dict] = {}
-    conv = float(session.get("conversion_rate", 1.0))
+    conv = to_decimal(session.get("conversion_rate", 1))
     cur = session.get("currency", current_app.config.get("DEFAULT_CURRENCY", "Rs"))
+
+    def _display(value) -> float:
+        return float(quantize_money(to_decimal(value or 0) * conv))
 
     for expense in expenses:
         splits = splits_by_expense.get(expense.id, [])
@@ -211,7 +216,7 @@ def build_expense_summaries(expenses, viewer_id: int) -> dict[int, dict]:
         secondary: list[dict] = []
 
         if expense.paid_by == viewer_id:
-            paid_line = f"you paid {cur} {round(amount * conv, 2)}"
+            paid_line = f"you paid {cur} {_display(amount)}"
             for split in splits:
                 if split.user_id == viewer_id or (split.amount_owed or 0) <= 0:
                     continue
@@ -219,7 +224,7 @@ def build_expense_summaries(expenses, viewer_id: int) -> dict[int, dict]:
                 fname = (friend.name.split()[0] if friend and friend.name else "friend")
                 secondary.append(
                     {
-                        "text": f"you lent {fname} {cur} {round((split.amount_owed or 0) * conv, 2)}",
+                        "text": f"you lent {fname} {cur} {_display(split.amount_owed)}",
                         "tone": "positive",
                     }
                 )
@@ -230,13 +235,13 @@ def build_expense_summaries(expenses, viewer_id: int) -> dict[int, dict]:
                 pname = payer.name.split()[0] if payer.name else "someone"
                 secondary.append(
                     {
-                        "text": f"you owe {pname} {cur} {round(owed * conv, 2)}",
+                        "text": f"you owe {pname} {cur} {_display(owed)}",
                         "tone": "negative",
                     }
                 )
             elif payer:
                 pname = payer.name.split()[0] if payer.name else "someone"
-                paid_line = f"{pname} paid {cur} {round(amount * conv, 2)}"
+                paid_line = f"{pname} paid {cur} {_display(amount)}"
 
         out[expense.id] = {"paid_line": paid_line, "secondary_lines": secondary}
     return out
